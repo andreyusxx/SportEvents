@@ -1,6 +1,7 @@
 namespace SportEvents.Core.Domain;
 
 /// <summary>Реєстрація учасника на змагання.</summary>
+/// <param name="item">Позиція реєстрації, яку потрібно додати.</param>
 public sealed class Registration
 {
     private readonly List<RegistrationItem> _items = new();
@@ -16,10 +17,11 @@ public sealed class Registration
     public IReadOnlyList<RegistrationItem> Items => _items;
 
     /// <summary>Додає позицію до реєстрації.</summary>
+    /// <param name="item">Позиція реєстрації, яку потрібно додати.</param>
     public void AddItem(RegistrationItem item) => _items.Add(item);
 
     /// <summary>Обчислює загальну суму реєстраційного внеску.</summary>
-    /// <returns></returns>
+    /// <returns>Загальна сума внеску типу decimal.</returns>
     public decimal Total()
     {
         decimal sum = 0m;
