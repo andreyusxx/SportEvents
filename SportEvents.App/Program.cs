@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using SportEvents.Core.Domain;
 
 Registration registration = new()
