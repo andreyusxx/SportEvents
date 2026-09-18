@@ -9,6 +9,50 @@ namespace ShopOrders.Domain;
 /// </summary>
 public class Order
 {
+    /// <summary>Початковий стан замовлення (новий).</summary>
+    public const int StatusNew = 0;
+
+    /// <summary>Стан замовлення: оплачено.</summary>
+    public const int StatusPaid = 1;
+
+    /// <summary>Стан замовлення: відправлено.</summary>
+    public const int StatusSent = 2;
+
+    /// <summary>Стан замовлення: скасовано.</summary>
+    public const int StatusCancelled = 3;
+
+    /// <summary>Ставка податку на додану вартість.</summary>
+    private const decimal VatRate = 0.2m;
+
+    /// <summary>Поріг суми для знижки постійному покупцю.</summary>
+    private const decimal RegularDiscountThreshold = 1000m;
+
+    /// <summary>Частка знижки постійному покупцю.</summary>
+    private const decimal RegularDiscountRate = 0.10m;
+
+    /// <summary>Поріг суми для знижки на велике замовлення.</summary>
+    private const decimal LargeOrderThreshold = 5000m;
+
+    /// <summary>Частка знижки на велике замовлення.</summary>
+    private const decimal LargeOrderDiscountRate = 0.15m;
+
+    /// <summary>Кількість рядків, з якої діє гуртова знижка.</summary>
+    private const int BulkLineCount = 10;
+
+    /// <summary>Сума гуртової знижки, грн.</summary>
+    private const decimal BulkDiscountAmount = 100m;
+
+    /// <summary>Межа кількості рядків у замовленні.</summary>
+    private const int MaxLineCount = 100;
+
+    /// <summary>Найкоротша довжина імені покупця.</summary>
+    private const int MinCustomerNameLength = 2;
+
+    /// <summary>Мінімальна довжина ідентифікатора замовлення.</summary>
+    private const int MinIdLength = 0;
+
+    /// <summary>Базове нульове значення грошової суми.</summary>
+    private const decimal ZeroAmount = 0m;
     private readonly List<string[]> _lines = new List<string[]>();
 
     /// <summary>
@@ -84,7 +128,7 @@ public class Order
     /// <returns>Підсумкова сума до сплати, округлена до двох знаків.</returns>
     public decimal CalculateTotal(bool isRegularCustomer)
     {
-        decimal total = 0;
+        decimal total = ZeroAmount;
         int lineCount = 0;
         for (int i = 0; i < _lines.Count; i++)
         {
@@ -95,19 +139,19 @@ public class Order
         }
 
         // Застосування знижки постійного клієнта або знижки на велике замовлення
-        if (isRegularCustomer == true && total > 1000)
+        if (isRegularCustomer == true && total > RegularDiscountThreshold)
         {
-            total *= 0.9m;
+            total *= (1 - RegularDiscountRate);
         }
-        else if (total > 5000)
+        else if (total > LargeOrderThreshold)
         {
-            total *= 0.85m;
+            total *= (1 - LargeOrderDiscountRate);
         }
 
         // Гуртова знижка від 10 позицій у чеку
-        if (lineCount > 10)
+        if (lineCount > BulkLineCount)
         {
-            total -= 100;
+            total -= BulkDiscountAmount;
         }
 
         if (total < 0)
@@ -116,7 +160,7 @@ public class Order
         }
 
         // Нарахування ПДВ 20% на підсумкову вартість після врахування знижок
-        total += total * 0.2m;
+        total += total * VatRate;
         return Math.Round(total, 2); 
     }
 
@@ -127,21 +171,21 @@ public class Order
     /// <returns>true, якщо перехід успішно здійснено; false, якщо перехід заборонений правилами.</returns>
     public bool TryChangeStatus(int newStatus)
     {
-        if (Status == 0 && newStatus == 1)
+        if (Status == StatusNew && newStatus == StatusPaid)
         {
-            Status = 1;
+            Status = StatusPaid;
             return true;
         }
 
-        if (Status == 1 && newStatus == 2)
+        if (Status == StatusPaid && newStatus == StatusSent)
         {
-            Status = 2;
+            Status = StatusSent;
             return true;
         }
 
-        if (Status == 0 && newStatus == 3)
+        if (Status == StatusNew && newStatus == StatusCancelled)
         {
-            Status = 3;
+            Status = StatusCancelled;
             return true;
         }
 
@@ -155,13 +199,13 @@ public class Order
     public bool IsValid()
     {
         if (Id != null
-            && Id != string.Empty
+            && Id.Length > MinIdLength
             && CustomerName != null
-            && CustomerName.Length > 2
+            && CustomerName.Length > MinCustomerNameLength
             && _lines.Count > 0
-            && _lines.Count < 100
-            && Status >= 0
-            && Status <= 3)
+            && _lines.Count < MaxLineCount
+            && Status >= StatusNew
+            && Status <= StatusCancelled)
         {
             return true;
         }
