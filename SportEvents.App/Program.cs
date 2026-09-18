@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using ShopOrders.Domain;
 
 Console.OutputEncoding = Encoding.UTF8;
