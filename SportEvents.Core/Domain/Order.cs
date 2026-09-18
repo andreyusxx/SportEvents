@@ -79,7 +79,7 @@ public class Order
     /// <summary>
     /// Отримує поточний стан замовлення.
     /// </summary>
-    public int Status { get; private set; } 
+    public int Status { get; private set; }
 
     /// <summary>
     /// Отримує дату та час створення замовлення.
@@ -140,11 +140,11 @@ public class Order
         // Застосування знижки постійного клієнта або знижки на велике замовлення
         if (isRegularCustomer == true && total > RegularDiscountThreshold)
         {
-            total *= (1 - RegularDiscountRate);
+            total *= 1 - RegularDiscountRate;
         }
         else if (total > LargeOrderThreshold)
         {
-            total *= (1 - LargeOrderDiscountRate);
+            total *= 1 - LargeOrderDiscountRate;
         }
 
         // Гуртова знижка від 10 позицій у чеку
@@ -160,7 +160,7 @@ public class Order
 
         // Нарахування ПДВ 20% на підсумкову вартість після врахування знижок
         total += total * VatRate;
-        return Math.Round(total, 2); 
+        return Math.Round(total, 2);
     }
 
     /// <summary>
@@ -188,7 +188,7 @@ public class Order
             return true;
         }
 
-        return false; 
+        return false;
     }
 
     /// <summary>
