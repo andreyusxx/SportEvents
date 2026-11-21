@@ -1,0 +1,640 @@
+﻿=== D:\SportEvents\SportEvents.App\Program.cs ===
+/* using System.Text;
+using ShopOrders.Domain;
+
+Console.OutputEncoding = Encoding.UTF8;
+
+var z = new Order("A-1001", "Іваненко");
+z.AddLine("SKU-1", 3, 250m);
+z.AddLine("SKU-2", 12, 90m);
+
+Console.WriteLine(z.CalculateTotal(false));
+Console.WriteLine(z.CalculateTotal(true));
+Console.WriteLine(z.IsValid());
+Console.WriteLine(z.TryChangeStatus(1));
+Console.Write(z.BuildReport()); */
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+
+namespace SportEvents.App;
+
+public class Participant
+{
+    public int Id { get; set; }
+
+    public bool IsActive { get; set; }
+
+    public TimeSpan Duration { get; set; }
+}
+
+internal class Program
+{
+    internal static void Main()
+    {
+        Console.OutputEncoding = System.Text.Encoding.UTF8;
+        Console.WriteLine("Генерація 100 000 записів...");
+
+        var participants = new List<Participant>(100000);
+        for (int i = 0; i < 100000; i++)
+        {
+            participants.Add(new Participant
+            {
+                Id = i,
+                IsActive = i % 2 == 0,
+                Duration = TimeSpan.FromSeconds(1500)
+            });
+        }
+
+        var sw = new Stopwatch();
+
+        // 1. Чистий код (LINQ)
+        sw.Start();
+        var activeAthletes = participants.Where(p => p.IsActive).ToList();
+        double totalTimeClean = activeAthletes.Sum(p => p.Duration.TotalSeconds);
+        sw.Stop();
+        var cleanTime = sw.ElapsedMilliseconds;
+
+        sw.Reset();
+
+        // 2. Оптимізований код (for)
+        sw.Start();
+        double totalTimeOpt = 0;
+        for (int i = 0; i < participants.Count; i++)
+        {
+            if (participants[i].IsActive)
+            {
+                totalTimeOpt += participants[i].Duration.TotalSeconds;
+            }
+        }
+
+        sw.Stop();
+        var optTime = sw.ElapsedMilliseconds;
+
+        Console.WriteLine($"Чистий код (LINQ): {cleanTime} мс");
+        Console.WriteLine($"Оптимізований (for): {optTime} мс");
+    }
+}
+=== D:\SportEvents\SportEvents.App\SportEvents.App.csproj ===
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\SportEvents.Core\SportEvents.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>
+=== D:\SportEvents\SportEvents.Core\Domain\Order.cs ===
+using System;
+using System.Collections.Generic;
+
+namespace ShopOrders.Domain;
+
+/// <summary>
+/// РџСЂРµРґСЃС‚Р°РІР»СЏС” Р·Р°РјРѕРІР»РµРЅРЅСЏ С–Р· РїРµСЂРµР»С–РєРѕРј РїРѕР·РёС†С–Р№ С‚Р° Р»РѕРіС–РєРѕСЋ СЂРѕР·СЂР°С…СѓРЅРєСѓ РІР°СЂС‚РѕСЃС‚С–.
+/// </summary>
+public class Order
+{
+    /// <summary>РџРѕС‡Р°С‚РєРѕРІРёР№ СЃС‚Р°РЅ Р·Р°РјРѕРІР»РµРЅРЅСЏ (РЅРѕРІРёР№).</summary>
+    public const int StatusNew = 0;
+
+    /// <summary>РЎС‚Р°РЅ Р·Р°РјРѕРІР»РµРЅРЅСЏ: РѕРїР»Р°С‡РµРЅРѕ.</summary>
+    public const int StatusPaid = 1;
+
+    /// <summary>РЎС‚Р°РЅ Р·Р°РјРѕРІР»РµРЅРЅСЏ: РІС–РґРїСЂР°РІР»РµРЅРѕ.</summary>
+    public const int StatusSent = 2;
+
+    /// <summary>РЎС‚Р°РЅ Р·Р°РјРѕРІР»РµРЅРЅСЏ: СЃРєР°СЃРѕРІР°РЅРѕ.</summary>
+    public const int StatusCancelled = 3;
+
+    /// <summary>РЎС‚Р°РІРєР° РїРѕРґР°С‚РєСѓ РЅР° РґРѕРґР°РЅСѓ РІР°СЂС‚С–СЃС‚СЊ.</summary>
+    private const decimal VatRate = 0.2m;
+
+    /// <summary>РџРѕСЂС–Рі СЃСѓРјРё РґР»СЏ Р·РЅРёР¶РєРё РїРѕСЃС‚С–Р№РЅРѕРјСѓ РїРѕРєСѓРїС†СЋ.</summary>
+    private const decimal RegularDiscountThreshold = 1000m;
+
+    /// <summary>Р§Р°СЃС‚РєР° Р·РЅРёР¶РєРё РїРѕСЃС‚С–Р№РЅРѕРјСѓ РїРѕРєСѓРїС†СЋ.</summary>
+    private const decimal RegularDiscountRate = 0.10m;
+
+    /// <summary>РџРѕСЂС–Рі СЃСѓРјРё РґР»СЏ Р·РЅРёР¶РєРё РЅР° РІРµР»РёРєРµ Р·Р°РјРѕРІР»РµРЅРЅСЏ.</summary>
+    private const decimal LargeOrderThreshold = 5000m;
+
+    /// <summary>Р§Р°СЃС‚РєР° Р·РЅРёР¶РєРё РЅР° РІРµР»РёРєРµ Р·Р°РјРѕРІР»РµРЅРЅСЏ.</summary>
+    private const decimal LargeOrderDiscountRate = 0.15m;
+
+    /// <summary>РљС–Р»СЊРєС–СЃС‚СЊ СЂСЏРґРєС–РІ, Р· СЏРєРѕС— РґС–С” РіСѓСЂС‚РѕРІР° Р·РЅРёР¶РєР°.</summary>
+    private const int BulkLineCount = 10;
+
+    /// <summary>РЎСѓРјР° РіСѓСЂС‚РѕРІРѕС— Р·РЅРёР¶РєРё, РіСЂРЅ.</summary>
+    private const decimal BulkDiscountAmount = 100m;
+
+    /// <summary>РњРµР¶Р° РєС–Р»СЊРєРѕСЃС‚С– СЂСЏРґРєС–РІ Сѓ Р·Р°РјРѕРІР»РµРЅРЅС–.</summary>
+    private const int MaxLineCount = 100;
+
+    /// <summary>РќР°Р№РєРѕСЂРѕС‚С€Р° РґРѕРІР¶РёРЅР° С–РјРµРЅС– РїРѕРєСѓРїС†СЏ.</summary>
+    private const int MinCustomerNameLength = 2;
+
+    /// <summary>РњС–РЅС–РјР°Р»СЊРЅР° РґРѕРІР¶РёРЅР° С–РґРµРЅС‚РёС„С–РєР°С‚РѕСЂР° Р·Р°РјРѕРІР»РµРЅРЅСЏ.</summary>
+    private const int MinIdLength = 0;
+
+    /// <summary>Р‘Р°Р·РѕРІРµ РЅСѓР»СЊРѕРІРµ Р·РЅР°С‡РµРЅРЅСЏ РіСЂРѕС€РѕРІРѕС— СЃСѓРјРё.</summary>
+    private const decimal ZeroAmount = 0m;
+    private readonly List<string[]> _lines = new List<string[]>();
+
+    /// <summary>
+    /// Р†РЅС–С†С–Р°Р»С–Р·СѓС” РЅРѕРІРёР№ РµРєР·РµРјРїР»СЏСЂ Р·Р°РјРѕРІР»РµРЅРЅСЏ.
+    /// </summary>
+    /// <param name="a">РЈРЅС–РєР°Р»СЊРЅРёР№ С–РґРµРЅС‚РёС„С–РєР°С‚РѕСЂ Р·Р°РјРѕРІР»РµРЅРЅСЏ.</param>
+    /// <param name="b">РџСЂС–Р·РІРёС‰Рµ Р°Р±Рѕ С–Рј'СЏ РєР»С–С”РЅС‚Р°.</param>
+    public Order(string a, string b)
+    {
+        Id = a;
+        CustomerName = b;
+        CreatedAt = DateTime.Now;
+    }
+
+    /// <summary>
+    /// РћС‚СЂРёРјСѓС” С–РґРµРЅС‚РёС„С–РєР°С‚РѕСЂ Р·Р°РјРѕРІР»РµРЅРЅСЏ.
+    /// </summary>
+    public string Id { get; private set; }
+
+    /// <summary>
+    /// РћС‚СЂРёРјСѓС” С–Рј'СЏ РєР»С–С”РЅС‚Р°.
+    /// </summary>
+    public string CustomerName { get; private set; }
+
+    /// <summary>
+    /// РћС‚СЂРёРјСѓС” РїРѕС‚РѕС‡РЅРёР№ СЃС‚Р°РЅ Р·Р°РјРѕРІР»РµРЅРЅСЏ.
+    /// </summary>
+    public int Status { get; private set; }
+
+    /// <summary>
+    /// РћС‚СЂРёРјСѓС” РґР°С‚Сѓ С‚Р° С‡Р°СЃ СЃС‚РІРѕСЂРµРЅРЅСЏ Р·Р°РјРѕРІР»РµРЅРЅСЏ.
+    /// </summary>
+    public DateTime CreatedAt { get; private set; }
+
+    /// <summary>
+    /// Р’РёРєРѕРЅСѓС” РїРѕС€СѓРє Р·Р°РјРѕРІР»РµРЅРЅСЏ Р·Р° Р№РѕРіРѕ С–РґРµРЅС‚РёС„С–РєР°С‚РѕСЂРѕРј Сѓ РЅР°РґР°РЅС–Р№ РєРѕР»РµРєС†С–С—.
+    /// </summary>
+    /// <param name="orders">РљРѕР»РµРєС†С–СЏ Р·Р°РјРѕРІР»РµРЅСЊ РґР»СЏ РїРѕС€СѓРєСѓ.</param>
+    /// <param name="orderId">Р¦С–Р»СЊРѕРІРёР№ С–РґРµРЅС‚РёС„С–РєР°С‚РѕСЂ Р·Р°РјРѕРІР»РµРЅРЅСЏ.</param>
+    /// <returns>Р—РЅР°Р№РґРµРЅРёР№ РµРєР·РµРјРїР»СЏСЂ Р·Р°РјРѕРІР»РµРЅРЅСЏ Р°Р±Рѕ null, СЏРєС‰Рѕ Р·Р°РїРёСЃ РЅРµ Р·РЅР°Р№РґРµРЅРѕ.</returns>
+    public static Order? FindById(List<Order> orders, string orderId)
+    {
+        for (int i = 0; i < orders.Count; i++)
+        {
+            if (orders[i].Id == orderId)
+            {
+                return orders[i];
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Р”РѕРґР°С” РґРѕ Р·Р°РјРѕРІР»РµРЅРЅСЏ РЅРѕРІРёР№ СЂСЏРґРѕРє С–Р· РґР°РЅРёРјРё РїСЂРѕ С‚РѕРІР°СЂ.
+    /// </summary>
+    /// <param name="sku">РђСЂС‚РёРєСѓР» РїРѕР·РёС†С–С—.</param>
+    /// <param name="quantity">РљС–Р»СЊРєС–СЃС‚СЊ РѕРґРёРЅРёС†СЊ.</param>
+    /// <param name="unitPrice">Р¦С–РЅР° Р·Р° РѕРґРёРЅРёС†СЋ С‚РѕРІР°СЂСѓ.</param>
+    public void AddLine(string sku, int quantity, decimal unitPrice)
+    {
+        string[] line = new string[3];
+        line[0] = sku;
+        line[1] = quantity.ToString();
+        line[2] = unitPrice.ToString();
+        _lines.Add(line);
+    }
+
+    /// <summary>
+    /// РћР±С‡РёСЃР»СЋС” РїС–РґСЃСѓРјРєРѕРІСѓ РІР°СЂС‚С–СЃС‚СЊ Р·Р°РјРѕРІР»РµРЅРЅСЏ Р· СѓСЂР°С…СѓРІР°РЅРЅСЏРј Р·РЅРёР¶РѕРє С‚Р° РџР”Р’.
+    /// </summary>
+    /// <param name="isRegularCustomer">РћР·РЅР°РєР° РЅР°СЏРІРЅРѕСЃС‚С– СЃС‚Р°С‚СѓСЃСѓ РїРѕСЃС‚С–Р№РЅРѕРіРѕ РїРѕРєСѓРїС†СЏ.</param>
+    /// <returns>РџС–РґСЃСѓРјРєРѕРІР° СЃСѓРјР° РґРѕ СЃРїР»Р°С‚Рё, РѕРєСЂСѓРіР»РµРЅР° РґРѕ РґРІРѕС… Р·РЅР°РєС–РІ.</returns>
+    public decimal CalculateTotal(bool isRegularCustomer)
+    {
+        decimal total = ZeroAmount;
+        int lineCount = 0;
+        for (int i = 0; i < _lines.Count; i++)
+        {
+            int quantity = int.Parse(_lines[i][1]);
+            decimal unitPrice = decimal.Parse(_lines[i][2]);
+            total += quantity * unitPrice;
+            lineCount++;
+        }
+
+        // Р—Р°СЃС‚РѕСЃСѓРІР°РЅРЅСЏ Р·РЅРёР¶РєРё РїРѕСЃС‚С–Р№РЅРѕРіРѕ РєР»С–С”РЅС‚Р° Р°Р±Рѕ Р·РЅРёР¶РєРё РЅР° РІРµР»РёРєРµ Р·Р°РјРѕРІР»РµРЅРЅСЏ
+        if (isRegularCustomer == true && total > RegularDiscountThreshold)
+        {
+            total *= 1 - RegularDiscountRate;
+        }
+        else if (total > LargeOrderThreshold)
+        {
+            total *= 1 - LargeOrderDiscountRate;
+        }
+
+        // Р“СѓСЂС‚РѕРІР° Р·РЅРёР¶РєР° РІС–Рґ 10 РїРѕР·РёС†С–Р№ Сѓ С‡РµРєСѓ
+        if (lineCount > BulkLineCount)
+        {
+            total -= BulkDiscountAmount;
+        }
+
+        if (total < 0)
+        {
+            total = 0;
+        }
+
+        // РќР°СЂР°С…СѓРІР°РЅРЅСЏ РџР”Р’ 20% РЅР° РїС–РґСЃСѓРјРєРѕРІСѓ РІР°СЂС‚С–СЃС‚СЊ РїС–СЃР»СЏ РІСЂР°С…СѓРІР°РЅРЅСЏ Р·РЅРёР¶РѕРє
+        total += total * VatRate;
+        return Math.Round(total, 2);
+    }
+
+    /// <summary>
+    /// Р—РјС–РЅСЋС” СЃС‚Р°РЅ Р·Р°РјРѕРІР»РµРЅРЅСЏ Р·Р° РїСЂР°РІРёР»Р°РјРё РґРѕРїСѓСЃС‚РёРјРёС… РїРµСЂРµС…РѕРґС–РІ РїСЂРµРґРјРµС‚РЅРѕС— РѕР±Р»Р°СЃС‚С–.
+    /// </summary>
+    /// <param name="newStatus">РќРѕРІРёР№ СЃС‚Р°РЅ, РЅР° СЏРєРёР№ РІРёРєРѕРЅСѓС”С‚СЊСЃСЏ СЃРїСЂРѕР±Р° РїРµСЂРµС…РѕРґСѓ.</param>
+    /// <returns>true, СЏРєС‰Рѕ РїРµСЂРµС…С–Рґ СѓСЃРїС–С€РЅРѕ Р·РґС–Р№СЃРЅРµРЅРѕ; false, СЏРєС‰Рѕ РїРµСЂРµС…С–Рґ Р·Р°Р±РѕСЂРѕРЅРµРЅРёР№ РїСЂР°РІРёР»Р°РјРё.</returns>
+    public bool TryChangeStatus(int newStatus)
+    {
+        if (Status == StatusNew && newStatus == StatusPaid)
+        {
+            Status = StatusPaid;
+            return true;
+        }
+
+        if (Status == StatusPaid && newStatus == StatusSent)
+        {
+            Status = StatusSent;
+            return true;
+        }
+
+        if (Status == StatusNew && newStatus == StatusCancelled)
+        {
+            Status = StatusCancelled;
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// РџРµСЂРµРІС–СЂСЏС” РєРѕСЂРµРєС‚РЅС–СЃС‚СЊ Р·Р°РїРѕРІРЅРµРЅРЅСЏ С‚Р° С†С–Р»С–СЃРЅС–СЃС‚СЊ РґР°РЅРёС… Р·Р°РјРѕРІР»РµРЅРЅСЏ.
+    /// </summary>
+    /// <returns>true, СЏРєС‰Рѕ РїРѕР»СЏ Р·Р°РјРѕРІР»РµРЅРЅСЏ Р·Р°РґРѕРІРѕР»СЊРЅСЏСЋС‚СЊ Р±С–Р·РЅРµСЃ-РїСЂР°РІРёР»Р°Рј; С–РЅР°РєС€Рµ false.</returns>
+    public bool IsValid()
+    {
+        if (Id != null
+            && Id.Length > MinIdLength
+            && CustomerName != null
+            && CustomerName.Length > MinCustomerNameLength
+            && _lines.Count > 0
+            && _lines.Count < MaxLineCount
+            && Status >= StatusNew
+            && Status <= StatusCancelled)
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Р¤РѕСЂРјСѓС” РґРµС‚Р°Р»СЊРЅРёР№ С‚РµРєСЃС‚РѕРІРёР№ Р·РІС–С‚ Р·Р° РїРѕР·РёС†С–СЏРјРё Р·Р°РјРѕРІР»РµРЅРЅСЏ С‚Р° С„С–РЅР°Р»СЊРЅРѕСЋ СЃСѓРјРѕСЋ.
+    /// </summary>
+    /// <returns>Р СЏРґРѕРє С–Р· СЂРѕР·РґСЂСѓРєРѕРІР°РЅРёРј РІРјС–СЃС‚РѕРј Р·Р°РјРѕРІР»РµРЅРЅСЏ.</returns>
+    public string BuildReport()
+    {
+        string report = string.Empty;
+
+        for (int i = 0; i < _lines.Count; i++)
+        {
+            int quantity = int.Parse(_lines[i][1]);
+            decimal unitPrice = decimal.Parse(_lines[i][2]);
+            decimal itemTotal = quantity * unitPrice;
+
+            report += "РўРѕРІР°СЂ: " + _lines[i][0]
+                + "; РєС–Р»СЊРєС–СЃС‚СЊ: " + _lines[i][1]
+                + "; С†С–РЅР°: " + _lines[i][2]
+                + "; СЃСѓРјР°: " + itemTotal + "\n";
+        }
+
+        report += "Р Р°Р·РѕРј: " + CalculateTotal(false) + "\n";
+        return report;
+    }
+}
+=== D:\SportEvents\SportEvents.Core\Domain\Participant.cs ===
+namespace SportEvents.Core.Domain;
+
+/// <summary>РЈС‡Р°СЃРЅРёРє Р·РјР°РіР°РЅСЊ.</summary>
+public sealed class Participant
+{
+    public int Id { get; init; }
+
+    public string Name { get; init; } = string.Empty;
+
+    public bool IsLicensed { get; init; }
+}
+=== D:\SportEvents\SportEvents.Core\Domain\Registration.cs ===
+namespace SportEvents.Core.Domain;
+
+/// <summary>Р РµС”СЃС‚СЂР°С†С–СЏ СѓС‡Р°СЃРЅРёРєР° РЅР° Р·РјР°РіР°РЅРЅСЏ.</summary>
+/// <param name="item">РџРѕР·РёС†С–СЏ СЂРµС”СЃС‚СЂР°С†С–С—, СЏРєСѓ РїРѕС‚СЂС–Р±РЅРѕ РґРѕРґР°С‚Рё.</param>
+public sealed class Registration
+{
+    private readonly List<RegistrationItem> _items = new();
+
+    public int Id { get; init; }
+
+    public int ParticipantId { get; init; }
+
+    public RegistrationStatus Status { get; set; } = RegistrationStatus.New;
+
+    public DateTimeOffset CreatedAt { get; init; }
+
+    public IReadOnlyList<RegistrationItem> Items => _items;
+
+    /// <summary>Р”РѕРґР°С” РїРѕР·РёС†С–СЋ РґРѕ СЂРµС”СЃС‚СЂР°С†С–С—.</summary>
+    /// <param name="item">РџРѕР·РёС†С–СЏ СЂРµС”СЃС‚СЂР°С†С–С—, СЏРєСѓ РїРѕС‚СЂС–Р±РЅРѕ РґРѕРґР°С‚Рё.</param>
+    public void AddItem(RegistrationItem item) => _items.Add(item);
+
+    /// <summary>РћР±С‡РёСЃР»СЋС” Р·Р°РіР°Р»СЊРЅСѓ СЃСѓРјСѓ СЂРµС”СЃС‚СЂР°С†С–Р№РЅРѕРіРѕ РІРЅРµСЃРєСѓ.</summary>
+    /// <returns>Р—Р°РіР°Р»СЊРЅР° СЃСѓРјР° РІРЅРµСЃРєСѓ С‚РёРїСѓ decimal.</returns>
+    public decimal Total()
+    {
+        decimal sum = 0m;
+        foreach (RegistrationItem item in _items)
+        {
+            sum += item.Amount;
+        }
+
+        return sum;
+    }
+}
+=== D:\SportEvents\SportEvents.Core\Domain\RegistrationItem.cs ===
+namespace SportEvents.Core.Domain;
+
+/// <summary>РџРѕР·РёС†С–СЏ СЂРµС”СЃС‚СЂР°С†С–С—: РєРѕРґ РґРёСЃС†РёРїР»С–РЅРё, РєС–Р»СЊРєС–СЃС‚СЊ РєР°С‚РµРіРѕСЂС–Р№ С‚Р° РІР°СЂС‚С–СЃС‚СЊ.</summary>
+public sealed class RegistrationItem
+{
+    public string Code { get; init; } = string.Empty;
+
+    public int Quantity { get; init; }
+
+    public decimal UnitPrice { get; init; }
+
+    public decimal Amount => Quantity * UnitPrice;
+}
+=== D:\SportEvents\SportEvents.Core\Domain\RegistrationStatus.cs ===
+namespace SportEvents.Core.Domain;
+
+/// <summary>РЎС‚Р°РЅ СЂРµС”СЃС‚СЂР°С†С–С— РЅР° Р·РјР°РіР°РЅРЅСЏ РІ Р¶РёС‚С‚С”РІРѕРјСѓ С†РёРєР»С–.</summary>
+public enum RegistrationStatus
+{
+    New = 0,
+    Confirmed = 1,
+    Finished = 2,
+    Cancelled = 3,
+    Disqualified = 4,
+}
+=== D:\SportEvents\SportEvents.Core\Domain\SportEvent.cs ===
+namespace SportEvents.Core.Domain;
+
+/// <summary>РЎРїРѕСЂС‚РёРІРЅР° РїРѕРґС–СЏ Р°Р±Рѕ РґРёСЃС†РёРїР»С–РЅР° РІ РєР°С‚Р°Р»РѕР·С–.</summary>
+public sealed class SportEvent
+{
+    public string Code { get; init; } = string.Empty;
+
+    public string Title { get; init; } = string.Empty;
+
+    public decimal Fee { get; init; }
+
+    public int MaxParticipants { get; init; }
+}
+=== D:\SportEvents\SportEvents.Core\SportEvents.Core.csproj ===
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+</Project>
+=== D:\SportEvents\.editorconfig ===
+root = true
+
+[*]
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{csproj,props,targets,json,yml}]
+indent_size = 2
+
+[*.cs]
+max_line_length = 100
+
+# С„РѕСЂРјР°С‚СѓРІР°РЅРЅСЏ Сѓ СЃС‚РёР»С– Allman
+csharp_new_line_before_open_brace = all
+csharp_new_line_before_else = true
+csharp_new_line_before_catch = true
+csharp_prefer_braces = true:warning
+csharp_indent_case_contents = true
+dotnet_sort_system_directives_first = true
+
+# СЃСѓС‡Р°СЃРЅРёР№ СЃРёРЅС‚Р°РєСЃРёСЃ C#
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_style_var_for_built_in_types = false:suggestion
+
+
+# РљРѕРЅСЃС‚Р°РЅС‚Рё С–РјРµРЅСѓС”РјРѕ PascalCase Р±РµР· РїС–РґРєСЂРµСЃР»РµРЅРЅСЏ
+dotnet_naming_rule.constant_fields_should_be_pascal_case.severity = warning
+dotnet_naming_rule.constant_fields_should_be_pascal_case.symbols = constant_fields
+dotnet_naming_rule.constant_fields_should_be_pascal_case.style = pascal_case_style
+
+dotnet_naming_symbols.constant_fields.applicable_kinds = field
+dotnet_naming_symbols.constant_fields.required_modifiers = const
+
+dotnet_naming_style.pascal_case_style.capitalization = pascal_case
+
+# С–РјРµРЅСѓРІР°РЅРЅСЏ: РїСЂРёРІР°С‚РЅС– РїРѕР»СЏ Р· РїС–РґРєСЂРµСЃР»РµРЅРЅСЏРј
+dotnet_naming_rule.priv_underscore.symbols = priv_field
+dotnet_naming_rule.priv_underscore.style = underscore_camel
+dotnet_naming_rule.priv_underscore.severity = warning
+
+dotnet_naming_symbols.priv_field.applicable_kinds = field
+dotnet_naming_symbols.priv_field.applicable_accessibilities = private
+
+dotnet_naming_style.underscore_camel.capitalization = camel_case
+dotnet_naming_style.underscore_camel.required_prefix = _
+
+# StyleCop: СЃРІС–РґРѕРјРѕ РІРёРјРєРЅРµРЅС– РїСЂР°РІРёР»Р°
+# Р·Р°РіРѕР»РѕРІРѕРє Р· Р»С–С†РµРЅР·С–С”СЋ РІ РЅР°РІС‡Р°Р»СЊРЅРѕРјСѓ РїСЂРѕРµРєС‚С– РЅРµ РїРѕС‚СЂС–Р±РµРЅ
+dotnet_diagnostic.SA1633.severity = none
+
+# РїСЂРµС„С–РєСЃ this. СЃСѓРїРµСЂРµС‡РёС‚СЊ РєРѕРЅРІРµРЅС†С–С— .NET
+dotnet_diagnostic.SA1101.severity = none
+
+# using РїРѕР·Р° namespace - СЃС‚Р°РЅРґР°СЂС‚ С€Р°Р±Р»РѕРЅС–РІ .NET
+dotnet_diagnostic.SA1200.severity = none
+
+# РїСЂРёРІР°С‚РЅС– РїРѕР»СЏ С–РјРµРЅСѓС”РјРѕ Р· РїС–РґРєСЂРµСЃР»РµРЅРЅСЏРј, СЏРє РїСЂРёР№РЅСЏС‚Рѕ РІ .NET (_items)
+dotnet_diagnostic.SA1309.severity = none
+
+# XML-РґРѕРєСѓРјРµРЅС‚Р°С†С–СЋ РІРёРјР°РіР°С‚РёРјРµРјРѕ Р· Р›Р  No 4, РїРѕРєРё С‰Рѕ РЅС–
+dotnet_diagnostic.SA0001.severity = none
+dotnet_diagnostic.SA1600.severity = none
+dotnet_diagnostic.SA1601.severity = none
+dotnet_diagnostic.SA1602.severity = none
+
+# РєРѕРјР° РІ РєС–РЅС†С– Р±Р°РіР°С‚РѕСЂСЏРґРєРѕРІРѕРіРѕ С–РЅС–С†С–Р°Р»С–Р·Р°С‚РѕСЂР° РЅРµРѕР±РѕРІ'СЏР·РєРѕРІР°
+dotnet_diagnostic.SA1413.severity = none
+
+# РїСЂР°РІРёР»Р°, СЏРєС– Р»РёС€Р°С”РјРѕ СЃСѓРІРѕСЂРёРјРё РґР»СЏ РєРѕРЅС‚СЂРѕР»СЋ СЏРєРѕСЃС‚С– РєРѕРґСѓ
+dotnet_diagnostic.SA1028.severity = warning
+dotnet_diagnostic.SA1201.severity = warning
+dotnet_diagnostic.SA1503.severity = warning
+dotnet_diagnostic.SA1516.severity = warning
+dotnet_diagnostic.IDE0055.severity = warning
+
+# Р’РёРјРёРєР°С”РјРѕ РїСЂР°РІРёР»Р° StyleCop, СЏРєС– СЃСѓРїРµСЂРµС‡Р°С‚СЊ СЃС‚Р°РЅРґР°СЂС‚Сѓ Р°Р±Рѕ СѓРєСЂР°С—РЅРѕРјРѕРІРЅС–Р№ РґРѕРєСѓРјРµРЅС‚Р°С†С–С—
+dotnet_diagnostic.SA1633.severity = none
+dotnet_diagnostic.SA1200.severity = none
+dotnet_diagnostic.SA1101.severity = none
+dotnet_diagnostic.SA1623.severity = none
+dotnet_diagnostic.SA1642.severity = none
+
+# РђСЂС…С–С‚РµРєС‚СѓСЂРЅРµ Р·Р°СѓРІР°Р¶РµРЅРЅСЏ Р»РѕРєР°Р»С– (Р·Р°РЅРµСЃРµРЅРѕ РґРѕ С‚РµС…РЅС–С‡РЅРѕРіРѕ Р±РѕСЂРіСѓ)
+dotnet_diagnostic.CA1305.severity = none
+
+# РўРёРјС‡Р°СЃРѕРІРѕ РЅРµ Р±Р»РѕРєСѓРІР°С‚Рё Р±С–Р»Рґ РІС–РґСЃСѓС‚РЅС–СЃС‚СЋ РѕРїРёСЃС–РІ Сѓ С„Р°Р№Р»Р°С… Р· Р›Р°Р±РѕСЂР°С‚РѕСЂРЅРѕС— 1
+dotnet_diagnostic.CS1591.severity = none
+dotnet_diagnostic.CS1572.severity = none
+=== D:\SportEvents\CODING_STANDARD.md ===
+# РЎС‚Р°РЅРґР°СЂС‚ РєРѕРґСѓРІР°РЅРЅСЏ РЅР°РІС‡Р°Р»СЊРЅРѕРіРѕ РїСЂРѕС”РєС‚Сѓ SportEvents
+
+## 1. Р—Р°РіР°Р»СЊРЅС– РїРѕР»РѕР¶РµРЅРЅСЏ
+Р¦РµР№ СЃС‚Р°РЅРґР°СЂС‚ РІРёР·РЅР°С‡Р°С” РѕР±РѕРІ'СЏР·РєРѕРІС– РїСЂР°РІРёР»Р° С–РјРµРЅСѓРІР°РЅРЅСЏ, С„РѕСЂРјР°С‚СѓРІР°РЅРЅСЏ С‚Р° РѕС„РѕСЂРјР»РµРЅРЅСЏ РІРёС…С–РґРЅРѕРіРѕ РєРѕРґСѓ РґР»СЏ РЅР°РІС‡Р°Р»СЊРЅРѕРіРѕ РїСЂРѕС”РєС‚Сѓ **SportEvents** (РІР°СЂС–Р°РЅС‚ в„– 20: Р РµС”СЃС‚СЂР°С†С–СЏ СѓС‡Р°СЃРЅРёРєС–РІ С– СЂРµР·СѓР»СЊС‚Р°С‚Рё Р·РјР°РіР°РЅСЊ). РњРµС‚Р° СЃС‚Р°РЅРґР°СЂС‚Сѓ вЂ” Р·Р°Р±РµР·РїРµС‡РµРЅРЅСЏ РІРёСЃРѕРєРѕС— С‡РёС‚Р°Р±РµР»СЊРЅРѕСЃС‚С– РєРѕРґСѓ С‚Р° СѓРЅРёРєРЅРµРЅРЅСЏ СЃС‚РёР»С–СЃС‚РёС‡РЅРёС… РєРѕРЅС„Р»С–РєС‚С–РІ Сѓ РєРѕРјР°РЅРґРЅС–Р№ СЂРѕР·СЂРѕР±С†С–.
+
+## 2. Р†РјРµРЅСѓРІР°РЅРЅСЏ
+РЈСЃС– С–РјРµРЅР° РІ РїСЂРѕС”РєС‚С– РјР°СЋС‚СЊ Р±СѓС‚Рё Р°РЅРіР»РѕРјРѕРІРЅРёРјРё, С‡С–С‚РєРёРјРё С‚Р° РІС–РґРѕР±СЂР°Р¶Р°С‚Рё Р±С–Р·РЅРµСЃ-СЃСѓС‚СЊ.
+
+| РЎСѓС‚РЅС–СЃС‚СЊ | РљРѕРЅРІРµРЅС†С–СЏ | РџСЂРёРєР»Р°Рґ | РђРЅС‚РёРїСЂРёРєР»Р°Рґ |
+| :--- | :--- | :--- | :--- |
+| РљР»Р°СЃ, Р·Р°РїРёСЃ | PascalCase, С–РјРµРЅРЅРёРє | `RegistrationItem` | `registration_item` |
+| Р†РЅС‚РµСЂС„РµР№СЃ | I + PascalCase | `IRegistrationRepository` | `Repository` |
+| РњРµС‚РѕРґ | PascalCase, РґС–С”СЃР»РѕРІРѕ | `CalculateTotal` | `calculate_total` |
+| Р’Р»Р°СЃС‚РёРІС–СЃС‚СЊ | PascalCase, С–РјРµРЅРЅРёРє | `UnitPrice` | `getUnitPrice` |
+| РџСЂРёРІР°С‚РЅРµ РїРѕР»Рµ | camelCase Р· РїС–РґРєСЂРµСЃР»РµРЅРЅСЏРј | `_items` | `m_items` |
+| Р›РѕРєР°Р»СЊРЅР° Р·РјС–РЅРЅР° | camelCase | `totalAmount` | `Total_Amount` |
+| РљРѕРЅСЃС‚Р°РЅС‚Р° | PascalCase | `MaxParticipantsLimit` | `MAX_LIMIT` |
+| РџРµСЂРµР»С–С‡РµРЅРЅСЏ | PascalCase, РѕРґРЅРёРЅР° | `RegistrationStatus` | `RegistrationStatuses` |
+
+## 3. Р¤РѕСЂРјР°С‚СѓРІР°РЅРЅСЏ
+1. **Р’С–РґСЃС‚СѓРї:** Р С–РІРЅРѕ 4 РїСЂРѕР±С–Р»Рё; С‚Р°Р±СѓР»СЏС†С–СЏ (`Tab`) Р·Р°Р±РѕСЂРѕРЅРµРЅР°.
+2. **Р”РѕРІР¶РёРЅР° СЂСЏРґРєР°:** РќРµ Р±С–Р»СЊС€Рµ РЅС–Р¶ 100 СЃРёРјРІРѕР»С–РІ РЅР° РѕРґРёРЅ СЂСЏРґРѕРє.
+3. **Р¤С–РіСѓСЂРЅС– РґСѓР¶РєРё:** Р’РёРєРѕСЂРёСЃС‚РѕРІСѓС”С‚СЊСЃСЏ СЃС‚РёР»СЊ Allman (РІС–РґРєСЂРёРІРЅР° РґСѓР¶РєР° Р·Р°РІР¶РґРё СЃС‚Р°РІРёС‚СЊСЃСЏ РЅР° РЅРѕРІРѕРјСѓ СЂСЏРґРєСѓ). Р”СѓР¶РєРё С” РѕР±РѕРІ'СЏР·РєРѕРІРёРјРё РЅР°РІС–С‚СЊ РґР»СЏ РѕРґРЅС–С”С— С–РЅСЃС‚СЂСѓРєС†С–С— РІ С‚С–Р»С– `if` С‡Рё `foreach`.
+4. **РџРѕСЂРѕР¶РЅС– СЂСЏРґРєРё:** РњС–Р¶ С‡Р»РµРЅР°РјРё РєР»Р°СЃСѓ РјР°С” Р±СѓС‚Рё СЂС–РІРЅРѕ РѕРґРёРЅ РїРѕСЂРѕР¶РЅС–Р№ СЂСЏРґРѕРє.
+5. **Р”РёСЂРµРєС‚РёРІРё using:** Р РѕР·РјС–С‰СѓСЋС‚СЊСЃСЏ РЅР° РїРѕС‡Р°С‚РєСѓ С„Р°Р№Р»Сѓ, СЃРёСЃС‚РµРјРЅС– РїСЂРѕСЃС‚РѕСЂРё С–РјРµРЅ С–РґСѓС‚СЊ РїРµСЂС€РёРјРё, РЅРµРІРёРєРѕСЂРёСЃС‚Р°РЅС– РґРёСЂРµРєС‚РёРІРё РІРёРґР°Р»СЏСЋС‚СЊСЃСЏ.
+6. **РџСЂРѕСЃС‚С–СЂ С–РјРµРЅ:** Р’РёРєРѕСЂРёСЃС‚РѕРІСѓС”С‚СЊСЃСЏ СЃСѓС‡Р°СЃРЅРёР№ СЃС‚РёР»СЊ РїСЂРѕСЃС‚РѕСЂСѓ С–РјРµРЅ С„Р°Р№Р»РѕРІРѕРіРѕ СЂС–РІРЅСЏ (`namespace SportEvents.Core.Domain;`).
+
+## 4. РљРѕРјРµРЅС‚Р°СЂС– С‚Р° РґРѕРєСѓРјРµРЅС‚Р°С†С–СЏ
+РљРѕРјРµРЅС‚Р°СЂС– РјР°СЋС‚СЊ РїРѕСЏСЃРЅСЋРІР°С‚Рё В«С‡РѕРјСѓВ» РїСЂРёР№РјР°С”С‚СЊСЃСЏ РїРµРІРЅРµ С‚РµС…РЅС–С‡РЅРµ СЂС–С€РµРЅРЅСЏ, Р° РЅРµ РґСѓР±Р»СЋРІР°С‚Рё РѕС‡РµРІРёРґРЅРёР№ РєРѕРґ (В«С‰РѕВ» РІС–РЅ СЂРѕР±РёС‚СЊ).
+
+* **РџРѕРіР°РЅРѕ (РґСѓР±Р»СЋРІР°РЅРЅСЏ РєРѕРґСѓ):**
+  ```csharp
+  // Р·Р±С–Р»СЊС€СѓС”РјРѕ Р»С–С‡РёР»СЊРЅРёРє РїРѕР·РёС†С–Р№ РЅР° РѕРґРёРЅРёС†СЋ
+  count = count + 1;
+
+* **Р”РѕР±СЂРµ (РїРѕСЏСЃРЅРµРЅРЅСЏ Р»РѕРіС–РєРё):**
+  ```csharp
+  // РїСЂРѕРїСѓСЃРєР°С”РјРѕ РЅРµР°РєС‚РёРІРЅРёС… СѓС‡Р°СЃРЅРёРєС–РІ, РѕСЃРєС–Р»СЊРєРё С—С…РЅС– Р»С–С†РµРЅР·С–С— Р°РЅСѓР»СЊРѕРІР°РЅС–
+  if (!participant.IsLicensed) continue;
+
+## 5. РЎС‚СЂСѓРєС‚СѓСЂР° РїСЂРѕС”РєС‚Сѓ
+РџСЂРѕС”РєС‚ СЂРѕР·РґС–Р»РµРЅРѕ РЅР° РґРІР° РјРѕРґСѓР»С–:
+* **SportEvents.Core** вЂ” Р±С–Р±Р»С–РѕС‚РµРєР° РєР»Р°СЃС–РІ С–Р· С‡РёСЃС‚РѕСЋ Р±С–Р·РЅРµСЃ-Р»РѕРіС–РєРѕСЋ С‚Р° РґРѕРјРµРЅРЅРѕСЋ РјРѕРґРµР»Р»СЋ.
+* **SportEvents.App** вЂ” РєРѕРЅСЃРѕР»СЊРЅРёР№ Р·Р°СЃС‚РѕСЃСѓРЅРѕРє РґР»СЏ РІР·Р°С”РјРѕРґС–С— Р· РєРѕСЂРёСЃС‚СѓРІР°С‡РµРј С‚Р° РІРёРІРѕРґСѓ СЂРµР·СѓР»СЊС‚Р°С‚С–РІ.
+
+## 6. РџСЂР°РІРёР»Р° РєРѕРјС–С‚С–РІ
+РџРѕРІС–РґРѕРјР»РµРЅРЅСЏ РєРѕРјС–С‚С–РІ РїРёС€СѓС‚СЊСЃСЏ Р·Р° РєРѕРЅРІРµРЅС†С–С”СЋ *Conventional Commits*:
+* `feat:` вЂ” РґРѕРґР°РІР°РЅРЅСЏ РЅРѕРІРѕС— РјРѕР¶Р»РёРІРѕСЃС‚С– (РЅР°РїСЂРёРєР»Р°Рґ, РјРѕРґРµР»С– С‡Рё РјРµС‚РѕРґСѓ).
+* `fix:` вЂ” РІРёРїСЂР°РІР»РµРЅРЅСЏ РїРѕРјРёР»РєРё.
+* `docs:` вЂ” РѕРЅРѕРІР»РµРЅРЅСЏ РґРѕРєСѓРјРµРЅС‚Р°С†С–С— Р°Р±Рѕ README.
+* `chore:` вЂ” С–РЅС„СЂР°СЃС‚СЂСѓРєС‚СѓСЂРЅС– Р·РјС–РЅРё, РєРѕРЅС„С–РіСѓСЂР°С†С–С— (`.editorconfig`, Р°РЅР°Р»С–Р·Р°С‚РѕСЂРё).
+
+## 7. РџСЂР°РІРёР»Р°, Р·Р°РєСЂС–РїР»РµРЅС– РјР°С€РёРЅРЅРѕ
+Р¦РµР№ СЃС‚Р°РЅРґР°СЂС‚ РїС–РґС‚СЂРёРјСѓС”С‚СЊСЃСЏ Р°РІС‚РѕРјР°С‚РёС‡РЅРѕ РЅР° СЂС–РІРЅС– СЃРµСЂРµРґРѕРІРёС‰Р° СЂРѕР·СЂРѕР±РєРё С‚Р° РєРѕРјРїС–Р»СЏС‚РѕСЂР°:
+
+| РџСѓРЅРєС‚ СЃС‚Р°РЅРґР°СЂС‚Сѓ | РњРµС…Р°РЅС–Р·Рј РїРµСЂРµРІС–СЂРєРё | РџСЂР°РІРёР»Рѕ / РќР°Р»Р°С€С‚СѓРІР°РЅРЅСЏ |
+| :--- | :--- | :--- |
+| Р’С–РґСЃС‚СѓРї 4 РїСЂРѕР±С–Р»Рё | `.editorconfig` | `indent_size = 4` |
+| РџСЂРёРІР°С‚РЅРµ РїРѕР»Рµ Р· РїС–РґРєСЂРµСЃР»РµРЅРЅСЏРј | РђРЅР°Р»С–Р·Р°С‚РѕСЂ С–РјРµРЅСѓРІР°РЅРЅСЏ | РЎС‚РёР»СЊ `underscore_camel` |
+| РћР±РѕРІ'СЏР·РєРѕРІС– С„С–РіСѓСЂРЅС– РґСѓР¶РєРё | `.editorconfig` | `csharp_prefer_braces = true` |
+| Р’С–РґСЃСѓС‚РЅС–СЃС‚СЊ Р·Р°Р№РІРёС… РїСЂРѕР±С–Р»С–РІ | StyleCop | `SA1028` |
+| РџРѕСЂСЏРґРѕРє С‡Р»РµРЅС–РІ РєР»Р°СЃСѓ | StyleCop | `SA1201` |
+| Р¤РѕСЂРјР°С‚ РєРѕРґСѓ Р·Р°РіР°Р»РѕРј | `dotnet format` | `IDE0055` |
+=== D:\SportEvents\Directory.Build.props ===
+<Project>
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>8.0-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+</Project>
+=== D:\SportEvents\README.md ===
+# SportEvents
+
+РќР°РІС‡Р°Р»СЊРЅРёР№ РїСЂРѕС”РєС‚ Р· РґРёСЃС†РёРїР»С–РЅРё В«РљРѕРЅСЃС‚СЂСѓСЋРІР°РЅРЅСЏ РїСЂРѕРіСЂР°РјРЅРѕРіРѕ Р·Р°Р±РµР·РїРµС‡РµРЅРЅСЏВ». Р’Р°СЂС–Р°РЅС‚ в„– 20: Р РµС”СЃС‚СЂР°С†С–СЏ СѓС‡Р°СЃРЅРёРєС–РІ С– СЂРµР·СѓР»СЊС‚Р°С‚Рё Р·РјР°РіР°РЅСЊ.
+
+## РЎРєР»Р°Рґ СЂС–С€РµРЅРЅСЏ
+- SportEvents.Core вЂ” Р»РѕРіС–РєР° РїСЂРµРґРјРµС‚РЅРѕС— РѕР±Р»Р°СЃС‚С– (Р±С–Р±Р»С–РѕС‚РµРєР° РєР»Р°СЃС–РІ)
+- SportEvents.App вЂ” РєРѕРЅСЃРѕР»СЊРЅРёР№ Р·Р°СЃС‚РѕСЃСѓРЅРѕРє (РІРІРµРґРµРЅРЅСЏ, РІРёРІРµРґРµРЅРЅСЏ)
+
+## Р’РёРјРѕРіРё
+.NET SDK 8.0 Р°Р±Рѕ РЅРѕРІС–С€РёР№ (Р°Р±Рѕ .NET 10.0), Git.
+
+## РЎРєР»Р°РґР°РЅРЅСЏ С‚Р° Р·Р°РїСѓСЃРє
+```bash
+dotnet build
+dotnet run --project SportEvents.App
+```
+## РЎС‚Р°РЅРґР°СЂС‚ РєРѕРґСѓРІР°РЅРЅСЏ
+РџСЂР°РІРёР»Р° РѕРїРёСЃР°РЅРѕ Сѓ С„Р°Р№Р»С– `CODING_STANDARD.md` С– Р·Р°РєСЂС–РїР»РµРЅРѕ РІ `.editorconfig` С‚Р° Р°РЅР°Р»С–Р·Р°С‚РѕСЂР°С…. РџРµСЂРµРІС–СЂРєР°:
+```bash
+dotnet format --verify-no-changes
+```
+
+РђРІС‚РѕСЂ
+РЁР°СЂР°РіС–РЅ РђРЅРґСЂС–Р№, РіСЂСѓРїР° 121

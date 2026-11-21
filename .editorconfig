@@ -2,6 +2,7 @@ root = true
 
 [*]
 charset = utf-8
+end_of_line = lf
 insert_final_newline = true
 trim_trailing_whitespace = true
 indent_style = space
@@ -13,33 +14,34 @@ indent_size = 2
 [*.cs]
 max_line_length = 100
 
-# форматування у стилі Allman
+# Форматування у стилі Allman та обов'язкові фігурні дужки
 csharp_new_line_before_open_brace = all
 csharp_new_line_before_else = true
 csharp_new_line_before_catch = true
-csharp_prefer_braces = true:warning
+csharp_prefer_braces = true:error
 csharp_indent_case_contents = true
 dotnet_sort_system_directives_first = true
 
-# сучасний синтаксис C#
+# Сучасний синтаксис C# та контроль типів
 csharp_style_namespace_declarations = file_scoped:warning
-csharp_style_var_for_built_in_types = false:suggestion
+csharp_style_var_when_type_is_apparent = true:warning
+csharp_style_var_for_built_in_types = false:warning
+csharp_style_var_elsewhere = false:warning
+dotnet_style_readonly_field = true:warning
+dotnet_style_qualification_for_field = false:warning
 
+dotnet_naming_rule.const_pascal.symbols = const_fields
+dotnet_naming_rule.const_pascal.style = pascal_case_style
+dotnet_naming_rule.const_pascal.severity = error
 
-# Константи іменуємо PascalCase без підкреслення
-dotnet_naming_rule.constant_fields_should_be_pascal_case.severity = warning
-dotnet_naming_rule.constant_fields_should_be_pascal_case.symbols = constant_fields
-dotnet_naming_rule.constant_fields_should_be_pascal_case.style = pascal_case_style
-
-dotnet_naming_symbols.constant_fields.applicable_kinds = field
-dotnet_naming_symbols.constant_fields.required_modifiers = const
+dotnet_naming_symbols.const_fields.applicable_kinds = field
+dotnet_naming_symbols.const_fields.required_modifiers = const
 
 dotnet_naming_style.pascal_case_style.capitalization = pascal_case
-
-# іменування: приватні поля з підкресленням
+# Іменування: приватні поля з підкресленням (_camelCase)
 dotnet_naming_rule.priv_underscore.symbols = priv_field
 dotnet_naming_rule.priv_underscore.style = underscore_camel
-dotnet_naming_rule.priv_underscore.severity = warning
+dotnet_naming_rule.priv_underscore.severity = error
 
 dotnet_naming_symbols.priv_field.applicable_kinds = field
 dotnet_naming_symbols.priv_field.applicable_accessibilities = private
@@ -47,45 +49,24 @@ dotnet_naming_symbols.priv_field.applicable_accessibilities = private
 dotnet_naming_style.underscore_camel.capitalization = camel_case
 dotnet_naming_style.underscore_camel.required_prefix = _
 
-# StyleCop: свідомо вимкнені правила
-# заголовок з ліцензією в навчальному проекті не потрібен
-dotnet_diagnostic.SA1633.severity = none
-
-# префікс this. суперечить конвенції .NET
-dotnet_diagnostic.SA1101.severity = none
-
-# using поза namespace - стандарт шаблонів .NET
-dotnet_diagnostic.SA1200.severity = none
-
-# приватні поля іменуємо з підкресленням, як прийнято в .NET (_items)
-dotnet_diagnostic.SA1309.severity = none
-
-# XML-документацію вимагатимемо з ЛР No 4, поки що ні
-dotnet_diagnostic.SA0001.severity = none
-dotnet_diagnostic.SA1600.severity = none
-dotnet_diagnostic.SA1601.severity = none
-dotnet_diagnostic.SA1602.severity = none
-
-# кома в кінці багаторядкового ініціалізатора необов'язкова
-dotnet_diagnostic.SA1413.severity = none
-
-# правила, які лишаємо суворими для контролю якості коду
-dotnet_diagnostic.SA1028.severity = warning
-dotnet_diagnostic.SA1201.severity = warning
-dotnet_diagnostic.SA1503.severity = warning
+# Налаштування рівнів діагностики Roslyn і StyleCop
+dotnet_diagnostic.CS1591.severity = warning
+dotnet_diagnostic.CA1062.severity = warning
+dotnet_diagnostic.CA1305.severity = warning
+dotnet_diagnostic.CA1502.severity = warning
+dotnet_diagnostic.CA1506.severity = warning
 dotnet_diagnostic.SA1516.severity = warning
-dotnet_diagnostic.IDE0055.severity = warning
+dotnet_diagnostic.SA1124.severity = error
 
-# Вимикаємо правила StyleCop, які суперечать стандарту або україномовній документації
+# Свідомо вимкнені правила StyleCop (з інженерним обґрунтуванням)
+# SA1633: Навчальний проєкт не потребує ліцензійного копірайту на початку кожного файлу.
 dotnet_diagnostic.SA1633.severity = none
+
+# SA1200: Вимагає using усередині namespace, що суперечить file-scoped namespace (правило F-11).
 dotnet_diagnostic.SA1200.severity = none
+
+# SA1101: Вимагає префікс this. перед полями, що дублює візуальне маркування префіксом _.
 dotnet_diagnostic.SA1101.severity = none
-dotnet_diagnostic.SA1623.severity = none
-dotnet_diagnostic.SA1642.severity = none
 
-# Архітектурне зауваження локалі (занесено до технічного боргу)
-dotnet_diagnostic.CA1305.severity = none
-
-# Тимчасово не блокувати білд відсутністю описів у файлах з Лабораторної 1
-dotnet_diagnostic.CS1591.severity = none
-dotnet_diagnostic.CS1572.severity = none
+# SA1309: Забороняє префікс _ для приватних полів, що прямо суперечить стандарту іменування .NET.
+dotnet_diagnostic.SA1309.severity = none
