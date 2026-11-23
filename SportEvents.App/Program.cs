@@ -13,6 +13,7 @@ TotalRequest request = new(
     [
         new RegistrationLine { EventCode = "RUN-10K", Quantity = 12, UnitPrice = 100m },
         new RegistrationLine { EventCode = "MEDAL-PRO", Quantity = 1, UnitPrice = 250m },
+
     ],
     CreatedAt: new DateOnly(2026, 3, 10),
     PromoCode: string.Empty,
