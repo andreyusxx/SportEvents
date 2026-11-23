@@ -4,6 +4,7 @@ using SportEvents.Core.Abstractions;
 using SportEvents.Core.Domain;
 using SportEvents.Core.Infrastructure;
 using SportEvents.Core.Pricing;
+using SportEvents.Core.Reporting;
 using SportEvents.Core.Services;
 
 namespace SportEvents.App;
@@ -20,17 +21,17 @@ internal static class Program
     {
         Console.OutputEncoding = Encoding.UTF8;
 
-        // Єдине місце, де програма створює конкретні реалізації залежностей
         IRegistrationRepository repository = new InMemoryRegistrationRepository();
         IPricingPolicy pricing = new DiscountPricingPolicy(0.05m);
-        RegistrationService service = new(repository, pricing);
+        INotifier notifier = new ConsoleNotifier(Console.Out);
+        RegistrationService service = new(repository, pricing, notifier);
 
         Registration registration = new(1, 100, DateOnly.FromDateTime(DateTime.Today));
         registration.AddItem(new RegistrationItem("RUN-10K", 2, 250m));
-        service.Place(registration);
 
-        string formattedTotal = service.TotalOf(registration)
-            .ToString("0.00", CultureInfo.CurrentCulture);
+        decimal total = service.Place(registration);
+        string formattedTotal = total.ToString("0.00", CultureInfo.CurrentCulture);
         Console.WriteLine($"Сума: {formattedTotal}");
+        Console.WriteLine($"CSV: {RegistrationCsvReport.BuildCsv(registration, total)}");
     }
 }

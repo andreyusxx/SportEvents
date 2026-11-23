@@ -10,6 +10,7 @@ public sealed class RegistrationService
 {
     private readonly IRegistrationRepository _repository;
     private readonly IPricingPolicy _pricing;
+    private readonly INotifier _notifier;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RegistrationService"/> class.
@@ -17,20 +18,26 @@ public sealed class RegistrationService
     /// </summary>
     /// <param name="repository">Сховище заявок.</param>
     /// <param name="pricing">Політика розрахунку вартості позицій.</param>
+    /// <param name="notifier">Сервіс сповіщення учасників.</param>
     /// <exception cref="ArgumentNullException">Одна із залежностей дорівнює null.</exception>
-    public RegistrationService(IRegistrationRepository repository, IPricingPolicy pricing)
+    public RegistrationService(
+        IRegistrationRepository repository,
+        IPricingPolicy pricing,
+        INotifier notifier)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _pricing = pricing ?? throw new ArgumentNullException(nameof(pricing));
+        _notifier = notifier ?? throw new ArgumentNullException(nameof(notifier));
     }
 
     /// <summary>
-    /// Реєструє нову заявку у сховищі після перевірки наявності позицій.
+    /// Реєструє нову заявку у сховищі, обчислює внесок і надсилає сповіщення.
     /// </summary>
     /// <param name="registration">Заявка учасника на змагання.</param>
+    /// <returns>Підсумкова сума внеску у гривнях.</returns>
     /// <exception cref="ArgumentNullException">Заявка дорівнює null.</exception>
     /// <exception cref="InvalidOperationException">У заявці відсутні обрані дисципліни.</exception>
-    public void Place(Registration registration)
+    public decimal Place(Registration registration)
     {
         ArgumentNullException.ThrowIfNull(registration);
         if (registration.Items.Count == 0)
@@ -38,7 +45,10 @@ public sealed class RegistrationService
             throw new InvalidOperationException("Неможливо оформити порожню заявку без позицій.");
         }
 
+        decimal total = TotalOf(registration);
         _repository.Add(registration);
+        _notifier.Notify(registration, total);
+        return total;
     }
 
     /// <summary>
