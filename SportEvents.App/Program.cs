@@ -1,60 +1,26 @@
-using System.Globalization;
+using System.Text;
 using SportEvents.Core.Domain;
+using SportEvents.Core.Legacy;
+using SportEvents.Core.Registrations;
+using SportEvents.Core.Reporting;
 
-namespace SportEvents.App;
+Console.OutputEncoding = Encoding.UTF8;
 
-/// <summary>Точка входу консольного застосунку обліку змагань SportEvents.</summary>
-internal static class Program
-{
-    /// <summary>Запускає демонстрацію доменної моделі та розрахунку результатів забігу.</summary>
-    private static void Main()
-    {
-        Console.OutputEncoding = System.Text.Encoding.UTF8;
+TotalRequest request = new(
+    RegistrationId: 1,
+    Participant: new ParticipantInfo("Іваненко", "i@ex.com", IsLicensed: true),
+    Lines:
+    [
+        new LegacyRegistrationLine { EventCode = "RUN-10K", Quantity = 12, UnitPrice = 100m },
+        new LegacyRegistrationLine { EventCode = "MEDAL-PRO", Quantity = 1, UnitPrice = 250m },
+    ],
+    CreatedAt: new DateOnly(2026, 3, 10),
+    PromoCode: string.Empty,
+    Status: RegistrationStatus.New,
+    DeliveryPrice: 60m);
 
-        var participant = new Participant
-        {
-            Id = 10,
-            Name = "Шарагін Андрій",
-            IsLicensed = true,
-        };
+TotalResult result = RegistrationCalculator.Calculate(request);
+string reportText = RegistrationReport.TextOf(request, result);
 
-        var registration = new Registration
-        {
-            Id = 1,
-            ParticipantId = participant.Id,
-            CreatedAt = new DateTimeOffset(2026, 5, 10, 9, 0, 0, TimeSpan.FromHours(3)),
-        };
-
-        registration.AddItem(new RegistrationItem
-        {
-            Code = "RUN-10K",
-            Quantity = 1,
-            UnitPrice = 450.00m,
-        });
-
-        registration.AddItem(new RegistrationItem
-        {
-            Code = "MEDAL-ENGRAVING",
-            Quantity = 1,
-            UnitPrice = 150.50m,
-        });
-
-        string formattedTotal = registration.Total()
-            .ToString("F2", CultureInfo.InvariantCulture);
-
-        Console.WriteLine($"Учасник: {participant.Name} (ліцензія: {participant.IsLicensed})");
-        Console.WriteLine($"Реєстрація #{registration.Id}, статус: {registration.Status}");
-        Console.WriteLine($"Сума внеску: {formattedTotal} грн");
-
-        var chipStartAt = new DateTimeOffset(2026, 5, 10, 10, 0, 0, TimeSpan.FromHours(3));
-        DateTimeOffset finishAt = chipStartAt
-            .AddMinutes(42)
-            .AddSeconds(18)
-            .AddMilliseconds(347);
-        var penaltyDuration = TimeSpan.FromSeconds(15);
-
-        var raceResult = new RaceResult(chipStartAt, finishAt, penaltyDuration);
-
-        Console.WriteLine($"Офіційний час дистанції: {raceResult.FormatOfficialDuration()}");
-    }
-}
+RegistrationReportPrinter printer = new(Console.Out);
+printer.Print(reportText);
