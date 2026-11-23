@@ -138,4 +138,36 @@ public static class RegistrationCalculator
             RegistrationStatus.Confirmed => RegistrationStatus.Finished,
             _ => current,
         };
+
+    /// <summary>
+    /// Виконує повний розрахунок вартості та оновленого стану заявки на змагання.
+    /// </summary>
+    /// <param name="request">Структурований запит на розрахунок заявки.</param>
+    /// <returns>Об'єкт результату з підсумковою сумою та новим станом.</returns>
+    public static TotalResult Calculate(TotalRequest request)
+    {
+        RegistrationGuards.EnsureRequestValid(request);
+
+        decimal total = SubtotalOf(request.Lines);
+        total -= LicensedParticipantDiscountOf(total, request.Participant.IsLicensed);
+        total -= VolumeDiscountOf(total);
+        total -= PromoDiscountOf(total, request.PromoCode);
+        total -= WeekendDiscountOf(total, request.CreatedAt);
+        total += DeliveryFeeOf(total, request.DeliveryPrice);
+
+        if (total < 0m)
+        {
+            total = 0m;
+        }
+
+        total = Math.Round(total, PricingRules.MoneyDecimals);
+
+        RegistrationStatus nextStatus = NextStatusOf(request.Status, total);
+        if (request.Status == RegistrationStatus.Cancelled)
+        {
+            total = 0m;
+        }
+
+        return new TotalResult(total, nextStatus);
+    }
 }

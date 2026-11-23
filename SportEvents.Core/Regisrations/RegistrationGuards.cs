@@ -67,4 +67,22 @@ public static class RegistrationGuards
             EnsureLineValid(line);
         }
     }
+
+    /// <summary>
+    /// Перевіряє валідність усіх складових запиту на розрахунок заявки.
+    /// </summary>
+    /// <param name="request">Об'єкт запиту на розрахунок.</param>
+    /// <exception cref="ArgumentNullException">Запит або відомості про учасника дорівнюють null.</exception>
+    public static void EnsureRequestValid(TotalRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(request.Participant);
+        EnsureHeaderValid(
+            request.RegistrationId,
+            request.Participant.Name,
+            request.Participant.Email);
+        EnsureLinesValid(request.Lines);
+        ArgumentOutOfRangeException.ThrowIfNegative(request.DeliveryPrice, nameof(request.DeliveryPrice));
+        ArgumentNullException.ThrowIfNull(request.Participant);
+    }
 }
