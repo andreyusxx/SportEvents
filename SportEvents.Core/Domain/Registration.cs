@@ -31,7 +31,7 @@ public sealed class Registration
         decimal sum = 0m;
         foreach (RegistrationItem item in _items)
         {
-            sum += item.Amount;
+            sum += item.LineTotal;
         }
 
         return sum;
