@@ -1,5 +1,5 @@
 using SportEvents.Core.Domain;
-using SportEvents.Core.Legacy;
+
 using SportEvents.Core.Registrations;
 using Xunit;
 
@@ -16,7 +16,7 @@ public sealed class RegistrationCalculatorTests
     [Fact]
     public void LineSubtotalOfBulkQuantityAppliesDiscount()
     {
-        LegacyRegistrationLine line = new() { EventCode = "RUN-10K", Quantity = 12, UnitPrice = 100m };
+        RegistrationLine line = new() { EventCode = "RUN-10K", Quantity = 12, UnitPrice = 100m };
 
         decimal subtotal = RegistrationCalculator.LineSubtotalOf(line);
 
@@ -83,5 +83,29 @@ public sealed class RegistrationCalculatorTests
         RegistrationStatus next = RegistrationCalculator.NextStatusOf(current, total);
 
         Assert.Equal(expected, next);
+    }
+    /// <summary>
+    /// Перевіряє повний розрахунок заявки ліцензованого учасника через Parameter Object.
+    /// </summary>
+    [Fact]
+    public void CalculateLicensedParticipantReturnsExpectedTotalAndStatus()
+    {
+        TotalRequest request = new(
+            RegistrationId: 1,
+            Participant: new ParticipantInfo("Іваненко", "i@ex.com", IsLicensed: true),
+            Lines:
+            [
+                new RegistrationLine { EventCode = "RUN-10K", Quantity = 12, UnitPrice = 100m },
+                new RegistrationLine { EventCode = "MEDAL-PRO", Quantity = 1, UnitPrice = 250m },
+            ],
+            CreatedAt: new DateOnly(2026, 3, 10),
+            PromoCode: string.Empty,
+            Status: RegistrationStatus.New,
+            DeliveryPrice: 60m);
+
+        TotalResult result = RegistrationCalculator.Calculate(request);
+
+        Assert.Equal(1292.70m, result.Total);
+        Assert.Equal(RegistrationStatus.Confirmed, result.NewStatus);
     }
 }

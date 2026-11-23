@@ -1,5 +1,4 @@
 using SportEvents.Core.Domain;
-using SportEvents.Core.Legacy;
 
 namespace SportEvents.Core.Registrations;
 
@@ -13,7 +12,7 @@ public static class RegistrationCalculator
     /// </summary>
     /// <param name="line">Позиція заявки на змагання.</param>
     /// <returns>Сума за позицією без побічних ефектів.</returns>
-    public static decimal LineSubtotalOf(LegacyRegistrationLine line)
+    public static decimal LineSubtotalOf(RegistrationLine line)
     {
         RegistrationGuards.EnsureLineValid(line);
         decimal sum = line.Quantity * line.UnitPrice;
@@ -27,11 +26,11 @@ public static class RegistrationCalculator
     /// </summary>
     /// <param name="lines">Перелік позицій заявки.</param>
     /// <returns>Загальна сума позицій до застосування знижок на документ.</returns>
-    public static decimal SubtotalOf(IReadOnlyList<LegacyRegistrationLine> lines)
+    public static decimal SubtotalOf(IReadOnlyList<RegistrationLine> lines)
     {
         RegistrationGuards.EnsureLinesValid(lines);
         decimal total = 0m;
-        foreach (LegacyRegistrationLine line in lines)
+        foreach (RegistrationLine line in lines)
         {
             total += LineSubtotalOf(line);
         }

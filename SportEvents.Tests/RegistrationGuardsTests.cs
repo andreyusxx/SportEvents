@@ -1,4 +1,3 @@
-using SportEvents.Core.Legacy;
 using SportEvents.Core.Registrations;
 using Xunit;
 
@@ -25,7 +24,7 @@ public sealed class RegistrationGuardsTests
     [Fact]
     public void EnsureLineValidZeroQuantityThrowsArgumentOutOfRangeException()
     {
-        LegacyRegistrationLine line = new()
+        RegistrationLine line = new()
         {
             EventCode = "RUN-10K",
             Quantity = 0,

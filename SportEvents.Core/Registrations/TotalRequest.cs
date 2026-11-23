@@ -1,5 +1,4 @@
 using SportEvents.Core.Domain;
-using SportEvents.Core.Legacy;
 
 namespace SportEvents.Core.Registrations;
 
@@ -16,7 +15,7 @@ namespace SportEvents.Core.Registrations;
 public sealed record TotalRequest(
     int RegistrationId,
     ParticipantInfo Participant,
-    IReadOnlyList<LegacyRegistrationLine> Lines,
+    IReadOnlyList<RegistrationLine> Lines,
     DateOnly CreatedAt,
     string? PromoCode,
     RegistrationStatus Status,

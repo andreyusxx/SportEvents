@@ -1,9 +1,9 @@
-namespace SportEvents.Core.Legacy;
+namespace SportEvents.Core.Registrations;
 
 /// <summary>
 /// Позиція заявки на участь у спортивних змаганнях для успадкованого обробника.
 /// </summary>
-public sealed class LegacyRegistrationLine
+public sealed class RegistrationLine
 {
     /// <summary>
     /// Gets or sets отримує або задає код дисципліни чи послуги змагань.

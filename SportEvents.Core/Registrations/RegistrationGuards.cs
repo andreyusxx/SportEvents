@@ -1,5 +1,3 @@
-using SportEvents.Core.Legacy;
-
 namespace SportEvents.Core.Registrations;
 
 /// <summary>
@@ -38,7 +36,7 @@ public static class RegistrationGuards
     /// <exception cref="ArgumentNullException">Позиція дорівнює null.</exception>
     /// <exception cref="ArgumentException">Код дисципліни порожній.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Кількість менша або дорівнює нулю, або ціна від'ємна.</exception>
-    public static void EnsureLineValid(LegacyRegistrationLine line)
+    public static void EnsureLineValid(RegistrationLine line)
     {
         ArgumentNullException.ThrowIfNull(line);
         ArgumentException.ThrowIfNullOrWhiteSpace(line.EventCode);
@@ -52,7 +50,7 @@ public static class RegistrationGuards
     /// <param name="lines">Перелік позицій заявки.</param>
     /// <exception cref="ArgumentNullException">Колекція позицій дорівнює null.</exception>
     /// <exception cref="ArgumentException">Заявка не містить жодної позиції або містить некоректні дані.</exception>
-    public static void EnsureLinesValid(IReadOnlyList<LegacyRegistrationLine> lines)
+    public static void EnsureLinesValid(IReadOnlyList<RegistrationLine> lines)
     {
         ArgumentNullException.ThrowIfNull(lines);
         if (lines.Count == 0)
@@ -62,7 +60,7 @@ public static class RegistrationGuards
                 nameof(lines));
         }
 
-        foreach (LegacyRegistrationLine line in lines)
+        foreach (RegistrationLine line in lines)
         {
             EnsureLineValid(line);
         }
@@ -83,6 +81,5 @@ public static class RegistrationGuards
             request.Participant.Email);
         EnsureLinesValid(request.Lines);
         ArgumentOutOfRangeException.ThrowIfNegative(request.DeliveryPrice, nameof(request.DeliveryPrice));
-        ArgumentNullException.ThrowIfNull(request.Participant);
     }
 }

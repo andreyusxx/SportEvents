@@ -1,6 +1,6 @@
 using System.Text;
 using SportEvents.Core.Domain;
-using SportEvents.Core.Legacy;
+
 using SportEvents.Core.Registrations;
 using SportEvents.Core.Reporting;
 
@@ -11,8 +11,8 @@ TotalRequest request = new(
     Participant: new ParticipantInfo("Іваненко", "i@ex.com", IsLicensed: true),
     Lines:
     [
-        new LegacyRegistrationLine { EventCode = "RUN-10K", Quantity = 12, UnitPrice = 100m },
-        new LegacyRegistrationLine { EventCode = "MEDAL-PRO", Quantity = 1, UnitPrice = 250m },
+        new RegistrationLine { EventCode = "RUN-10K", Quantity = 12, UnitPrice = 100m },
+        new RegistrationLine { EventCode = "MEDAL-PRO", Quantity = 1, UnitPrice = 250m },
     ],
     CreatedAt: new DateOnly(2026, 3, 10),
     PromoCode: string.Empty,

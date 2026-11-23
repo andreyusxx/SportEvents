@@ -1,6 +1,6 @@
 using System.Globalization;
 using System.Text;
-using SportEvents.Core.Legacy;
+
 using SportEvents.Core.Registrations;
 
 namespace SportEvents.Core.Reporting;
@@ -25,7 +25,7 @@ public static class RegistrationReport
         StringBuilder text = new();
         text.AppendLine(string.Format(culture, "Документ № {0}", request.RegistrationId));
         text.AppendLine("Клієнт: " + request.Participant.Name);
-        foreach (LegacyRegistrationLine line in request.Lines)
+        foreach (RegistrationLine line in request.Lines)
         {
             text.AppendLine(string.Format(culture, "{0} x {1}", line.EventCode, line.Quantity));
         }
