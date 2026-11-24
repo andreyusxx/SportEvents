@@ -1,5 +1,6 @@
 using SportEvents.Core.Abstractions;
 using SportEvents.Core.Domain;
+using SportEvents.Core.Errors;
 
 namespace SportEvents.Core.Services;
 
@@ -49,6 +50,28 @@ public sealed class RegistrationService
         _repository.Add(registration);
         _notifier.Notify(registration, total);
         return total;
+    }
+
+    /// <summary>
+    /// Скасовує заявку за її ідентифікатором із перевіркою доменних правил.
+    /// </summary>
+    /// <param name="registrationId">Унікальний ідентифікатор заявки.</param>
+    /// <exception cref="DomainRuleException">Заявку не знайдено або її стан не дозволяє скасування.</exception>
+    public void Cancel(int registrationId)
+    {
+        Registration registration = _repository.GetById(registrationId)
+            ?? throw new DomainRuleException(
+                "registration.exists",
+                $"Заявку з ідентифікатором {registrationId} не знайдено.");
+
+        if (registration.Status != RegistrationStatus.New)
+        {
+            throw new DomainRuleException(
+                "registration.cancellable",
+                $"Заявку #{registrationId} у стані {registration.Status} неможливо скасувати.");
+        }
+
+        registration.Cancel();
     }
 
     /// <summary>
