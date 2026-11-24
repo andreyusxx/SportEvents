@@ -1,26 +1,37 @@
+using System.Globalization;
 using System.Text;
+using SportEvents.Core.Abstractions;
 using SportEvents.Core.Domain;
-
-using SportEvents.Core.Registrations;
+using SportEvents.Core.Infrastructure;
+using SportEvents.Core.Pricing;
 using SportEvents.Core.Reporting;
+using SportEvents.Core.Services;
 
-Console.OutputEncoding = Encoding.UTF8;
+namespace SportEvents.App;
 
-TotalRequest request = new(
-    RegistrationId: 1,
-    Participant: new ParticipantInfo("Іваненко", "i@ex.com", IsLicensed: true),
-    Lines:
-    [
-        new RegistrationLine { EventCode = "RUN-10K", Quantity = 12, UnitPrice = 100m },
-        new RegistrationLine { EventCode = "MEDAL-PRO", Quantity = 1, UnitPrice = 250m },
-    ],
-    CreatedAt: new DateOnly(2026, 3, 10),
-    PromoCode: string.Empty,
-    Status: RegistrationStatus.New,
-    DeliveryPrice: 60m);
+/// <summary>
+/// Точка входу консольного застосунку, що виконує роль композиційного кореня.
+/// </summary>
+internal static class Program
+{
+    /// <summary>
+    /// Збирає граф залежностей та виконує демонстраційний сценарій реєстрації на змагання.
+    /// </summary>
+    private static void Main()
+    {
+        Console.OutputEncoding = Encoding.UTF8;
 
-TotalResult result = RegistrationCalculator.Calculate(request);
-string reportText = RegistrationReport.TextOf(request, result);
+        IRegistrationRepository repository = new InMemoryRegistrationRepository();
+        IPricingPolicy pricing = new DiscountPricingPolicy(0.05m);
+        INotifier notifier = new ConsoleNotifier(Console.Out);
+        RegistrationService service = new(repository, pricing, notifier);
 
-RegistrationReportPrinter printer = new(Console.Out);
-printer.Print(reportText);
+        Registration registration = new(1, 100, DateOnly.FromDateTime(DateTime.Today));
+        registration.AddItem(new RegistrationItem("RUN-10K", 2, 250m));
+
+        decimal total = service.Place(registration);
+        string formattedTotal = total.ToString("0.00", CultureInfo.CurrentCulture);
+        Console.WriteLine($"Сума: {formattedTotal}");
+        Console.WriteLine($"CSV: {RegistrationCsvReport.BuildCsv(registration, total)}");
+    }
+}
