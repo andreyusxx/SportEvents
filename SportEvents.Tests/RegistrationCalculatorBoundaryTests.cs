@@ -4,88 +4,53 @@ using Xunit;
 namespace SportEvents.Tests;
 
 /// <summary>
-/// Модульні тести класів еквівалентності та граничних значень для RegistrationCalculator.
+/// Параметризовані та межові модульні тести для RegistrationCalculator.
 /// </summary>
 public sealed class RegistrationCalculatorBoundaryTests
 {
     /// <summary>
-    /// Перевіряє нижню межу класу 0,00 грн у розрахунку обсягової знижки.
+    /// Перевіряє розрахунок обсягової знижки на всіх класах еквівалентності та граничних значеннях.
     /// </summary>
-    [Fact]
-    public void VolumeDiscountOf_ZeroAmount_ReturnsZero()
+    /// <param name="amount">Вхідна сума заявки у гривнях.</param>
+    /// <param name="expected">Очікувана сума знижки у гривнях.</param>
+    [Theory]
+    [InlineData(0.00, 0.00)]
+    [InlineData(1500.00, 0.00)]
+    [InlineData(2000.00, 0.00)]
+    [InlineData(2000.01, 100.0005)]
+    [InlineData(5000.00, 250.00)]
+    [InlineData(5000.01, 500.001)]
+    public void VolumeDiscountOf_Boundaries_MatchesTable(double amount, double expected)
     {
         // Arrange
-        decimal amount = 0.00m;
+        decimal decimalAmount = (decimal)amount;
+        decimal expectedDiscount = (decimal)expected;
 
         // Act
-        decimal actual = RegistrationCalculator.VolumeDiscountOf(amount);
+        decimal actual = RegistrationCalculator.VolumeDiscountOf(decimalAmount);
 
         // Assert
-        Assert.Equal(0.00m, actual);
+        Assert.Equal(expectedDiscount, actual);
     }
 
     /// <summary>
-    /// Перевіряє верхню межу базового класу: рівно 2000,00 грн ще не дає знижки (0,00 грн).
+    /// Перевіряє викидання винятку ArgumentOutOfRangeException із коректним ParamName при від'ємній сумі.
     /// </summary>
-    [Fact]
-    public void VolumeDiscountOf_Exact2000_ReturnsZero()
+    /// <param name="amount">Недопустима від'ємна сума.</param>
+    [Theory]
+    [InlineData(-0.01)]
+    [InlineData(-1000.00)]
+    public void VolumeDiscountOf_NegativeAmount_ThrowsOutOfRange(double amount)
     {
         // Arrange
-        decimal amount = 2000.00m;
+        decimal negativeAmount = (decimal)amount;
 
         // Act
-        decimal actual = RegistrationCalculator.VolumeDiscountOf(amount);
+        ArgumentOutOfRangeException ex = Assert.Throws<ArgumentOutOfRangeException>(
+            () => RegistrationCalculator.VolumeDiscountOf(negativeAmount));
 
         // Assert
-        Assert.Equal(0.00m, actual);
-    }
-
-    /// <summary>
-    /// Перевіряє нижню межу знижки 5 %: 2000,01 грн дає знижку 100,0005 грн.
-    /// </summary>
-    [Fact]
-    public void VolumeDiscountOf_JustAbove2000_ReturnsFivePercent()
-    {
-        // Arrange
-        decimal amount = 2000.01m;
-
-        // Act
-        decimal actual = RegistrationCalculator.VolumeDiscountOf(amount);
-
-        // Assert
-        Assert.Equal(100.0005m, actual);
-    }
-
-    /// <summary>
-    /// Перевіряє верхню межу класу знижки 5 %: рівно 5000,00 грн дає 5 % (250,00 грн).
-    /// </summary>
-    [Fact]
-    public void VolumeDiscountOf_Exact5000_ReturnsFivePercent()
-    {
-        // Arrange
-        decimal amount = 5000.00m;
-
-        // Act
-        decimal actual = RegistrationCalculator.VolumeDiscountOf(amount);
-
-        // Assert
-        Assert.Equal(250.00m, actual);
-    }
-
-    /// <summary>
-    /// Перевіряє нижню межу знижки 10 %: 5000,01 грн дає знижку 500,001 грн.
-    /// </summary>
-    [Fact]
-    public void VolumeDiscountOf_JustAbove5000_ReturnsTenPercent()
-    {
-        // Arrange
-        decimal amount = 5000.01m;
-
-        // Act
-        decimal actual = RegistrationCalculator.VolumeDiscountOf(amount);
-
-        // Assert
-        Assert.Equal(500.001m, actual);
+        Assert.Equal("amount", ex.ParamName);
     }
 
     /// <summary>
