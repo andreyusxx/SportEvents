@@ -4,16 +4,6 @@ using System.Collections.Generic;
 
 namespace SportEvents.Legacy;
 
-public class Athlete
-{
-    public int Id;
-    public string Name = "";
-    public string Email = "";
-    public string Kind = "regular";
-    public int DoneCount;
-    public DateTime SinceUtc;
-}
-
 public class EventLineItem
 {
     public string Code = "";
