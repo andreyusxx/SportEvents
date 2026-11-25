@@ -1,11 +1,12 @@
-#pragma warning disable CS0168, CA1031, CA2200, CA1806, CA1062
+using System.Globalization;
 using SportEvents.Core.Abstractions;
 using SportEvents.Core.Domain;
+using SportEvents.Core.Errors;
 
 namespace SportEvents.Core.Services;
 
 /// <summary>
-/// Навчальний клас із чотирма антипатернами обробки винятків до рефакторингу.
+/// Демонструє коректну обробку винятків і перевірок після усунення чотирьох антипатернів.
 /// </summary>
 public sealed class RegistrationAntipatternExamples
 {
@@ -18,70 +19,77 @@ public sealed class RegistrationAntipatternExamples
     /// <param name="repository">Сховище заявок.</param>
     public RegistrationAntipatternExamples(IRegistrationRepository repository)
     {
-        _repository = repository;
+        _repository = repository ?? throw new ArgumentNullException(nameof(repository));
     }
 
     /// <summary>
-    /// АНТИПАТЕРН 1: проковтнутий виняток (порожній catch) і повернення null.
-    /// </summary>
-    /// <param name="registrationId">Ідентифікатор заявки.</param>
-    /// <returns>Знайдена заявка або null.</returns>
-    public Registration? LoadUnsafe(int registrationId)
-    {
-        try
-        {
-            return _repository.GetById(registrationId);
-        }
-        catch (Exception)
-        {
-        }
-
-        return null;
-    }
-
-    /// <summary>
-    /// АНТИПАТЕРНИ 2 і 3: широке перехоплення catch (Exception) та втрата стека через throw ex.
-    /// </summary>
-    /// <param name="registrationId">Ідентифікатор заявки.</param>
-    public void CancelUnsafe(int registrationId)
-    {
-        try
-        {
-            Registration? registration = _repository.GetById(registrationId);
-            registration!.Cancel();
-        }
-        catch (Exception ex)
-        {
-            _ = "Щось пішло не так";
-            throw ex;
-        }
-    }
-
-    /// <summary>
-    /// АНТИПАТЕРН 4: винятки як керування потоком (try/catch замість int.TryParse).
+    /// Виправлення антипатерну 4: використання int.TryParse замість try/catch для керування потоком.
     /// </summary>
     /// <param name="rows">Масив рядків із кількістю слотів.</param>
     /// <returns>Кількість коректних додатних значень.</returns>
-    public int CountValidQuantitiesUnsafe(string[] rows)
+    public static int CountValidQuantitiesSafe(IReadOnlyList<string> rows)
     {
-        _ = _repository;
+        ArgumentNullException.ThrowIfNull(rows);
+
         int valid = 0;
         foreach (string row in rows)
         {
-            try
+            if (int.TryParse(row, NumberStyles.Integer, CultureInfo.InvariantCulture, out int quantity)
+                && quantity > 0)
             {
-                int q = int.Parse(row, System.Globalization.CultureInfo.InvariantCulture);
-                if (q > 0)
-                {
-                    valid++;
-                }
-            }
-            catch (FormatException)
-            {
-                // не число — пропускаємо
+                valid++;
             }
         }
 
         return valid;
+    }
+
+    /// <summary>
+    /// Виправлення антипатерну 1: не перехоплюємо невідомі збої, а повертаємо результат або кидаємо доменний виняток.
+    /// </summary>
+    /// <param name="registrationId">Ідентифікатор заявки.</param>
+    /// <returns>Знайдена заявка.</returns>
+    /// <exception cref="DomainRuleException">Заявку не знайдено у сховищі.</exception>
+    public Registration LoadSafe(int registrationId)
+    {
+        return _repository.GetById(registrationId)
+            ?? throw new DomainRuleException(
+                "registration.exists",
+                $"Заявку #{registrationId} не знайдено.");
+    }
+
+    /// <summary>
+    /// Виправлення антипатернів 2 і 3: перевірка передумов, конкретний тип винятку та збереження стека через throw.
+    /// </summary>
+    /// <param name="registrationId">Ідентифікатор заявки.</param>
+    /// <exception cref="DomainRuleException">Заявку не знайдено або її неможливо скасувати.</exception>
+    /// <exception cref="StorageException">Помилка середовища під час звернення до сховища.</exception>
+    public void CancelSafe(int registrationId)
+    {
+        try
+        {
+            Registration registration = LoadSafe(registrationId);
+            if (registration.Status != RegistrationStatus.New)
+            {
+                throw new DomainRuleException(
+                    "registration.cancellable",
+                    $"Заявку #{registrationId} у стані {registration.Status} неможливо скасувати.");
+            }
+
+            registration.Cancel();
+        }
+        catch (IOException ex)
+        {
+            throw new StorageException(
+                "Cancel",
+                $"registration:{registrationId}",
+                $"Збій введення-виведення під час скасування заявки #{registrationId}.",
+                ex);
+        }
+        catch (DomainRuleException)
+        {
+            // Зберігаємо початковий стек викликів доменного винятку без зміни його типу
+            throw;
+        }
     }
 }
