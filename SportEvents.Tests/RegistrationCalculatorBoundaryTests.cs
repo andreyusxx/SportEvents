@@ -20,6 +20,7 @@ public sealed class RegistrationCalculatorBoundaryTests
     [InlineData(2000.01, 100.0005)]
     [InlineData(5000.00, 250.00)]
     [InlineData(5000.01, 500.001)]
+    [InlineData(6000.01, 600.00)]
     public void VolumeDiscountOf_Boundaries_MatchesTable(double amount, double expected)
     {
         // Arrange
@@ -31,6 +32,22 @@ public sealed class RegistrationCalculatorBoundaryTests
 
         // Assert
         Assert.Equal(expectedDiscount, actual);
+    }
+
+    /// <summary>
+    /// Перевіряє обмеження максимальної обсягової знижки стелею 600,00 грн для великих заявок.
+    /// </summary>
+    [Fact]
+    public void VolumeDiscountOf_HugeAmount_IsCappedAtMax()
+    {
+        // Arrange
+        decimal amount = 8000.00m;
+
+        // Act
+        decimal actual = RegistrationCalculator.VolumeDiscountOf(amount);
+
+        // Assert
+        Assert.Equal(600.00m, actual);
     }
 
     /// <summary>
@@ -67,20 +84,5 @@ public sealed class RegistrationCalculatorBoundaryTests
 
         // Assert
         Assert.Equal(2375.00m, actual);
-    }
-    /// <summary>
-    /// Перевіряє обмеження максимальної обсягової знижки стелею 600,00 грн для великих заявок.
-    /// </summary>
-    [Fact]
-    public void VolumeDiscountOf_HugeAmount_IsCappedAtMax()
-    {
-        // Arrange
-        decimal amount = 8000.00m;
-
-        // Act
-        decimal actual = RegistrationCalculator.VolumeDiscountOf(amount);
-
-        // Assert
-        Assert.Equal(600.00m, actual);
     }
 }
