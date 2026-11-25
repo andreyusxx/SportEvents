@@ -35,9 +35,6 @@ public class LegacyRegistrationProcessor
     private const decimal StandardShippingFee = 50m;
 
     private readonly List<string> _log = new List<string>();
-    private decimal _lastDiscount;
-    private decimal _lastShipping;
-    private decimal _lastTotal;
 
     public string Handle(
         int docId,
@@ -64,11 +61,7 @@ public class LegacyRegistrationProcessor
         decimal disc = CalculateDiscount(athlete, sum) + manualBonus;
         decimal afterDisc = sum - disc;
         decimal ship = CalculateShipping(afterDisc, urgent);
-
         grandTotal = afterDisc + ship;
-        _lastDiscount = disc;
-        _lastShipping = ship;
-        _lastTotal = grandTotal;
 
         if (sendMail)
         {
@@ -76,7 +69,7 @@ public class LegacyRegistrationProcessor
         }
 
         _log.Add("OK#" + docId);
-        return BuildReportText(docId, athlete, items, currency, _lastDiscount, _lastShipping, _lastTotal);
+        return BuildReportText(docId, athlete, items, currency, disc, ship, grandTotal);
     }
 
     public string Preview(int docId, Athlete athlete, List<EventLineItem> items)
