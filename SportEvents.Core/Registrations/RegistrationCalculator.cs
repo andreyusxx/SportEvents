@@ -53,24 +53,15 @@ public static class RegistrationCalculator
     }
 
     /// <summary>
-    /// Обчислює розмір знижки за загальний обсяг заявки.
+    /// Обчислює розмір знижки за загальний обсяг заявки з урахуванням граничної стелі.
     /// </summary>
     /// <param name="amount">Поточна сума заявки.</param>
-    /// <returns>Сума знижки за обсяг.</returns>
+    /// <returns>Сума знижки за обсяг, обмежена максимумом <see cref="PricingRules.MaxVolumeDiscount"/>.</returns>
     public static decimal VolumeDiscountOf(decimal amount)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(amount);
-        if (amount > PricingRules.HighVolumeThreshold)
-        {
-            return amount * PricingRules.HighVolumeRate;
-        }
-
-        if (amount > PricingRules.MediumVolumeThreshold)
-        {
-            return amount * PricingRules.MediumVolumeRate;
-        }
-
-        return 0m;
+        decimal rawDiscount = amount * VolumeRateOf(amount);
+        return Math.Min(rawDiscount, PricingRules.MaxVolumeDiscount);
     }
 
     /// <summary>
@@ -168,5 +159,20 @@ public static class RegistrationCalculator
         }
 
         return new TotalResult(total, nextStatus);
+    }
+
+    private static decimal VolumeRateOf(decimal amount)
+    {
+        if (amount > PricingRules.HighVolumeThreshold)
+        {
+            return PricingRules.HighVolumeRate;
+        }
+
+        if (amount > PricingRules.MediumVolumeThreshold)
+        {
+            return PricingRules.MediumVolumeRate;
+        }
+
+        return 0m;
     }
 }

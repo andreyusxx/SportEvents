@@ -79,4 +79,9 @@ public static class PricingRules
     /// Кількість десяткових знаків при округленні підсумкової суми.
     /// </summary>
     public const int MoneyDecimals = 2;
+
+    /// <summary>
+    /// Максимально допустимий розмір обсягової знижки, грн.
+    /// </summary>
+    public const decimal MaxVolumeDiscount = 600m;
 }

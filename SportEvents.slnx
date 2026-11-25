@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="SportEvents.App/SportEvents.App.csproj" />
   <Project Path="SportEvents.Core/SportEvents.Core.csproj" />
+  <Project Path="SportEvents.Legacy/SportEvents.Legacy.csproj" />
   <Project Path="SportEvents.Tests/SportEvents.Tests.csproj" />
 </Solution>
