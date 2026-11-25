@@ -23,6 +23,17 @@ public class EventLineItem
 
 public class LegacyRegistrationProcessor
 {
+    private const decimal DiscountThreshold = 500m;
+    private const decimal VipHighRate = 0.15m;
+    private const decimal VipBaseRate = 0.10m;
+    private const decimal PartnerHighRate = 0.12m;
+    private const decimal PartnerBaseRate = 0.05m;
+    private const decimal LoyalRate = 0.07m;
+    private const int LoyalMinDoneCount = 10;
+    private const decimal FreeShippingThreshold = 1000m;
+    private const decimal UrgentShippingFee = 150m;
+    private const decimal StandardShippingFee = 50m;
+
     private readonly List<string> _log = new List<string>();
     private decimal _lastDiscount;
     private decimal _lastShipping;
@@ -59,40 +70,23 @@ public class LegacyRegistrationProcessor
                         decimal disc = 0m;
                         if (athlete.Kind == "vip")
                         {
-                            if (sum > 500m)
-                            {
-                                disc = sum * 0.15m;
-                            }
-                            else
-                            {
-                                disc = sum * 0.10m;
-                            }
+                            disc = sum > DiscountThreshold ? sum * VipHighRate : sum * VipBaseRate;
                         }
                         else if (athlete.Kind == "partner")
                         {
-                            if (sum > 500m)
-                            {
-                                disc = sum * 0.12m;
-                            }
-                            else
-                            {
-                                disc = sum * 0.05m;
-                            }
+                            disc = sum > DiscountThreshold ? sum * PartnerHighRate : sum * PartnerBaseRate;
                         }
-                        else if (athlete.DoneCount > 10)
+                        else if (athlete.DoneCount > LoyalMinDoneCount && sum > DiscountThreshold)
                         {
-                            if (sum > 500m)
-                            {
-                                disc = sum * 0.07m;
-                            }
+                            disc = sum * LoyalRate;
                         }
 
                         disc += manualBonus;
                         decimal afterDisc = sum - disc;
                         decimal ship = 0m;
-                        if (afterDisc < 1000m)
+                        if (afterDisc < FreeShippingThreshold)
                         {
-                            ship = urgent ? 150m : 50m;
+                            ship = urgent ? UrgentShippingFee : StandardShippingFee;
                         }
 
                         grandTotal = afterDisc + ship;
@@ -160,19 +154,19 @@ public class LegacyRegistrationProcessor
         decimal disc = 0m;
         if (athlete.Kind == "vip")
         {
-            disc = sum > 500m ? sum * 0.15m : sum * 0.10m;
+            disc = sum > DiscountThreshold ? sum * VipHighRate : sum * VipBaseRate;
         }
         else if (athlete.Kind == "partner")
         {
-            disc = sum > 500m ? sum * 0.12m : sum * 0.05m;
+            disc = sum > DiscountThreshold ? sum * PartnerHighRate : sum * PartnerBaseRate;
         }
-        else if (athlete.DoneCount > 10 && sum > 500m)
+        else if (athlete.DoneCount > LoyalMinDoneCount && sum > DiscountThreshold)
         {
-            disc = sum * 0.07m;
+            disc = sum * LoyalRate;
         }
 
         decimal afterDisc = sum - disc;
-        decimal ship = afterDisc < 1000m ? 50m : 0m;
+        decimal ship = afterDisc < FreeShippingThreshold ? StandardShippingFee : 0m;
         decimal total = afterDisc + ship;
 
         string rep = "Документ #" + docId + "\n";
@@ -192,7 +186,7 @@ public class LegacyRegistrationProcessor
     {
         string s = a.Name.Trim().ToUpper();
         if (a.Kind == "vip") s += " [VIP]";
-        if (a.DoneCount > 10) s += " [ЛОЯЛЬНИЙ]";
+        if (a.DoneCount > LoyalMinDoneCount) s += " [ЛОЯЛЬНИЙ]";
         s += " <" + a.Email.ToLower() + ">";
         int years = DateTime.Now.Year - a.SinceUtc.Year;
         s += " стаж " + years;
