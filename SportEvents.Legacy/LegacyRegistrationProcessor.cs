@@ -35,6 +35,7 @@ public class LegacyRegistrationProcessor
     private const decimal StandardShippingFee = 50m;
 
     private readonly List<string> _log = new List<string>();
+    private readonly RegistrationReportBuilder _reportBuilder = new();
 
     public string Handle(
         int docId,
@@ -69,7 +70,7 @@ public class LegacyRegistrationProcessor
         }
 
         _log.Add("OK#" + docId);
-        return BuildReportText(docId, athlete, items, currency, disc, ship, grandTotal);
+        return _reportBuilder.Build(docId, athlete, items, currency, disc, ship, grandTotal);
     }
 
     public string Preview(int docId, Athlete athlete, List<EventLineItem> items)
@@ -85,7 +86,7 @@ public class LegacyRegistrationProcessor
         decimal ship = CalculateShipping(afterDisc, urgent: false);
         decimal total = afterDisc + ship;
 
-        return BuildReportText(docId, athlete, items, "UAH", disc, ship, total);
+        return _reportBuilder.Build(docId, athlete, items, "UAH", disc, ship, total);
     }
 
     public string DescribeClient(Athlete a)
@@ -182,27 +183,5 @@ public class LegacyRegistrationProcessor
         }
 
         return urgent ? UrgentShippingFee : StandardShippingFee;
-    }
-
-    private static string BuildReportText(
-        int docId,
-        Athlete athlete,
-        IReadOnlyList<EventLineItem> items,
-        string currency,
-        decimal discount,
-        decimal shipping,
-        decimal total)
-    {
-        string rep = "Документ #" + docId + "\n";
-        rep += "Клієнт: " + athlete.Name + "\n";
-        for (int i = 0; i < items.Count; i++)
-        {
-            rep += items[i].Code + " x" + items[i].Qty + " = " + (items[i].Qty * items[i].Price).ToString("0.00") + " " + currency + "\n";
-        }
-
-        rep += "Знижка: " + discount.ToString("0.00") + " " + currency + "\n";
-        rep += "Доставка: " + shipping.ToString("0.00") + " " + currency + "\n";
-        rep += "Разом: " + total.ToString("0.00") + " " + currency + "\n";
-        return rep;
     }
 }
