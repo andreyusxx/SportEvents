@@ -68,4 +68,19 @@ public sealed class RegistrationCalculatorBoundaryTests
         // Assert
         Assert.Equal(2375.00m, actual);
     }
+    /// <summary>
+    /// Перевіряє обмеження максимальної обсягової знижки стелею 600,00 грн для великих заявок.
+    /// </summary>
+    [Fact]
+    public void VolumeDiscountOf_HugeAmount_IsCappedAtMax()
+    {
+        // Arrange
+        decimal amount = 8000.00m;
+
+        // Act
+        decimal actual = RegistrationCalculator.VolumeDiscountOf(amount);
+
+        // Assert
+        Assert.Equal(600.00m, actual);
+    }
 }
