@@ -23,19 +23,11 @@ public class EventLineItem
 
 public class LegacyRegistrationProcessor
 {
-    private const decimal DiscountThreshold = 500m;
-    private const decimal VipHighRate = 0.15m;
-    private const decimal VipBaseRate = 0.10m;
-    private const decimal PartnerHighRate = 0.12m;
-    private const decimal PartnerBaseRate = 0.05m;
-    private const decimal LoyalRate = 0.07m;
     private const int LoyalMinDoneCount = 10;
-    private const decimal FreeShippingThreshold = 1000m;
-    private const decimal UrgentShippingFee = 150m;
-    private const decimal StandardShippingFee = 50m;
 
     private readonly List<string> _log = new List<string>();
     private readonly RegistrationReportBuilder _reportBuilder = new();
+    private readonly LegacyPricingPolicy _pricing = new();
 
     public string Handle(
         int docId,
@@ -58,10 +50,10 @@ public class LegacyRegistrationProcessor
             return validationError;
         }
 
-        decimal sum = CalculateSubtotal(items);
-        decimal disc = CalculateDiscount(athlete, sum) + manualBonus;
+        decimal sum = _pricing.CalculateSubtotal(items);
+        decimal disc = _pricing.CalculateDiscount(athlete, sum) + manualBonus;
         decimal afterDisc = sum - disc;
-        decimal ship = CalculateShipping(afterDisc, urgent);
+        decimal ship = _pricing.CalculateShipping(afterDisc, urgent);
         grandTotal = afterDisc + ship;
 
         if (sendMail)
@@ -80,10 +72,10 @@ public class LegacyRegistrationProcessor
             return "EMPTY";
         }
 
-        decimal sum = CalculateSubtotal(items);
-        decimal disc = CalculateDiscount(athlete, sum);
+        decimal sum = _pricing.CalculateSubtotal(items);
+        decimal disc = _pricing.CalculateDiscount(athlete, sum);
         decimal afterDisc = sum - disc;
-        decimal ship = CalculateShipping(afterDisc, urgent: false);
+        decimal ship = _pricing.CalculateShipping(afterDisc, urgent: false);
         decimal total = afterDisc + ship;
 
         return _reportBuilder.Build(docId, athlete, items, "UAH", disc, ship, total);
@@ -142,46 +134,5 @@ public class LegacyRegistrationProcessor
         }
 
         return null;
-    }
-
-    private static decimal CalculateSubtotal(IReadOnlyList<EventLineItem> items)
-    {
-        decimal sum = 0m;
-        for (int i = 0; i < items.Count; i++)
-        {
-            sum += items[i].Qty * items[i].Price;
-        }
-
-        return sum;
-    }
-
-    private static decimal CalculateDiscount(Athlete athlete, decimal sum)
-    {
-        if (athlete.Kind == "vip")
-        {
-            return sum > DiscountThreshold ? sum * VipHighRate : sum * VipBaseRate;
-        }
-
-        if (athlete.Kind == "partner")
-        {
-            return sum > DiscountThreshold ? sum * PartnerHighRate : sum * PartnerBaseRate;
-        }
-
-        if (athlete.DoneCount > LoyalMinDoneCount && sum > DiscountThreshold)
-        {
-            return sum * LoyalRate;
-        }
-
-        return 0m;
-    }
-
-    private static decimal CalculateShipping(decimal amountAfterDiscount, bool urgent)
-    {
-        if (amountAfterDiscount >= FreeShippingThreshold)
-        {
-            return 0m;
-        }
-
-        return urgent ? UrgentShippingFee : StandardShippingFee;
     }
 }
