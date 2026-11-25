@@ -53,89 +53,87 @@ public class LegacyRegistrationProcessor
         out decimal grandTotal)
     {
         grandTotal = 0m;
-        if (items != null)
+        string? validationError = Validate(items, state, clientMail);
+        if (validationError != null)
         {
-            if (items.Count > 0)
-            {
-                if (state == "new" || state == "draft")
-                {
-                    if (clientMail != null && clientMail.Contains("@"))
-                    {
-                        decimal sum = 0m;
-                        for (int i = 0; i < items.Count; i++)
-                        {
-                            sum += items[i].Qty * items[i].Price;
-                        }
-
-                        decimal disc = 0m;
-                        if (athlete.Kind == "vip")
-                        {
-                            disc = sum > DiscountThreshold ? sum * VipHighRate : sum * VipBaseRate;
-                        }
-                        else if (athlete.Kind == "partner")
-                        {
-                            disc = sum > DiscountThreshold ? sum * PartnerHighRate : sum * PartnerBaseRate;
-                        }
-                        else if (athlete.DoneCount > LoyalMinDoneCount && sum > DiscountThreshold)
-                        {
-                            disc = sum * LoyalRate;
-                        }
-
-                        disc += manualBonus;
-                        decimal afterDisc = sum - disc;
-                        decimal ship = 0m;
-                        if (afterDisc < FreeShippingThreshold)
-                        {
-                            ship = urgent ? UrgentShippingFee : StandardShippingFee;
-                        }
-
-                        grandTotal = afterDisc + ship;
-                        _lastDiscount = disc;
-                        _lastShipping = ship;
-                        _lastTotal = grandTotal;
-
-                        string rep = "Документ #" + docId + "\n";
-                        rep += "Клієнт: " + athlete.Name + "\n";
-                        for (int i = 0; i < items.Count; i++)
-                        {
-                            rep += items[i].Code + " x" + items[i].Qty + " = " + (items[i].Qty * items[i].Price).ToString("0.00") + " " + currency + "\n";
-                        }
-
-                        rep += "Знижка: " + _lastDiscount.ToString("0.00") + " " + currency + "\n";
-                        rep += "Доставка: " + _lastShipping.ToString("0.00") + " " + currency + "\n";
-                        rep += "Разом: " + _lastTotal.ToString("0.00") + " " + currency + "\n";
-
-                        if (sendMail)
-                        {
-                            _log.Add("MAIL->" + clientMail + ":" + grandTotal.ToString("0.00"));
-                        }
-
-                        _log.Add("OK#" + docId);
-                        return rep;
-                    }
-                    else
-                    {
-                        _log.Add("ERR: mail");
-                        return "ERR: mail";
-                    }
-                }
-                else
-                {
-                    _log.Add("ERR: state");
-                    return "ERR: state";
-                }
-            }
-            else
-            {
-                _log.Add("ERR: empty");
-                return "ERR: empty";
-            }
+            _log.Add(validationError);
+            return validationError;
         }
-        else
+
+        decimal sum = 0m;
+        for (int i = 0; i < items.Count; i++)
         {
-            _log.Add("ERR: null");
+            sum += items[i].Qty * items[i].Price;
+        }
+
+        decimal disc = 0m;
+        if (athlete.Kind == "vip")
+        {
+            disc = sum > DiscountThreshold ? sum * VipHighRate : sum * VipBaseRate;
+        }
+        else if (athlete.Kind == "partner")
+        {
+            disc = sum > DiscountThreshold ? sum * PartnerHighRate : sum * PartnerBaseRate;
+        }
+        else if (athlete.DoneCount > LoyalMinDoneCount && sum > DiscountThreshold)
+        {
+            disc = sum * LoyalRate;
+        }
+
+        disc += manualBonus;
+        decimal afterDisc = sum - disc;
+        decimal ship = afterDisc < FreeShippingThreshold
+            ? (urgent ? UrgentShippingFee : StandardShippingFee)
+            : 0m;
+
+        grandTotal = afterDisc + ship;
+        _lastDiscount = disc;
+        _lastShipping = ship;
+        _lastTotal = grandTotal;
+
+        string rep = "Документ #" + docId + "\n";
+        rep += "Клієнт: " + athlete.Name + "\n";
+        for (int i = 0; i < items.Count; i++)
+        {
+            rep += items[i].Code + " x" + items[i].Qty + " = " + (items[i].Qty * items[i].Price).ToString("0.00") + " " + currency + "\n";
+        }
+
+        rep += "Знижка: " + _lastDiscount.ToString("0.00") + " " + currency + "\n";
+        rep += "Доставка: " + _lastShipping.ToString("0.00") + " " + currency + "\n";
+        rep += "Разом: " + _lastTotal.ToString("0.00") + " " + currency + "\n";
+
+        if (sendMail)
+        {
+            _log.Add("MAIL->" + clientMail + ":" + grandTotal.ToString("0.00"));
+        }
+
+        _log.Add("OK#" + docId);
+        return rep;
+    }
+
+    private static string? Validate(List<EventLineItem>? items, string state, string? clientMail)
+    {
+        if (items == null)
+        {
             return "ERR: null";
         }
+
+        if (items.Count == 0)
+        {
+            return "ERR: empty";
+        }
+
+        if (state != "new" && state != "draft")
+        {
+            return "ERR: state";
+        }
+
+        if (clientMail == null || !clientMail.Contains("@"))
+        {
+            return "ERR: mail";
+        }
+
+        return null;
     }
 
     public string Preview(int docId, Athlete athlete, List<EventLineItem> items)
