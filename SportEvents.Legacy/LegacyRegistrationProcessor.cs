@@ -13,11 +13,42 @@ public class EventLineItem
 
 public class LegacyRegistrationProcessor
 {
-    private const int LoyalMinDoneCount = 10;
-
     private readonly List<string> _log = new List<string>();
     private readonly RegistrationReportBuilder _reportBuilder = new();
     private readonly LegacyPricingPolicy _pricing = new();
+
+    public RegistrationHandleResult Handle(RegistrationHandleRequest request)
+    {
+        string? validationError = Validate(request.Items, request.State, request.ClientMail);
+        if (validationError != null)
+        {
+            _log.Add(validationError);
+            return new RegistrationHandleResult(validationError, 0m);
+        }
+
+        decimal subtotal = _pricing.CalculateSubtotal(request.Items!);
+        decimal discount = _pricing.CalculateDiscount(request.Athlete, subtotal) + request.ManualBonus;
+        decimal afterDiscount = subtotal - discount;
+        decimal shipping = _pricing.CalculateShipping(afterDiscount, request.Urgent);
+        decimal grandTotal = afterDiscount + shipping;
+
+        if (request.SendMail)
+        {
+            _log.Add("MAIL->" + request.ClientMail + ":" + grandTotal.ToString("0.00"));
+        }
+
+        _log.Add("OK#" + request.DocId);
+        string report = _reportBuilder.Build(
+            request.DocId,
+            request.Athlete,
+            request.Items!,
+            request.Currency,
+            discount,
+            shipping,
+            grandTotal);
+
+        return new RegistrationHandleResult(report, grandTotal);
+    }
 
     public string Handle(
         int docId,
@@ -32,27 +63,18 @@ public class LegacyRegistrationProcessor
         decimal manualBonus,
         out decimal grandTotal)
     {
-        grandTotal = 0m;
-        string? validationError = Validate(items, state, clientMail);
-        if (validationError != null)
-        {
-            _log.Add(validationError);
-            return validationError;
-        }
-
-        decimal sum = _pricing.CalculateSubtotal(items);
-        decimal disc = _pricing.CalculateDiscount(athlete, sum) + manualBonus;
-        decimal afterDisc = sum - disc;
-        decimal ship = _pricing.CalculateShipping(afterDisc, urgent);
-        grandTotal = afterDisc + ship;
-
-        if (sendMail)
-        {
-            _log.Add("MAIL->" + clientMail + ":" + grandTotal.ToString("0.00"));
-        }
-
-        _log.Add("OK#" + docId);
-        return _reportBuilder.Build(docId, athlete, items, currency, disc, ship, grandTotal);
+        RegistrationHandleResult result = Handle(new RegistrationHandleRequest(
+            docId,
+            athlete,
+            items,
+            state,
+            currency,
+            sendMail,
+            clientMail,
+            urgent,
+            manualBonus));
+        grandTotal = result.GrandTotal;
+        return result.Report;
     }
 
     public string Preview(int docId, Athlete athlete, List<EventLineItem> items)
@@ -62,33 +84,16 @@ public class LegacyRegistrationProcessor
             return "EMPTY";
         }
 
-        decimal sum = _pricing.CalculateSubtotal(items);
-        decimal disc = _pricing.CalculateDiscount(athlete, sum);
-        decimal afterDisc = sum - disc;
-        decimal ship = _pricing.CalculateShipping(afterDisc, urgent: false);
-        decimal total = afterDisc + ship;
+        decimal subtotal = _pricing.CalculateSubtotal(items);
+        decimal discount = _pricing.CalculateDiscount(athlete, subtotal);
+        decimal afterDiscount = subtotal - discount;
+        decimal shipping = _pricing.CalculateShipping(afterDiscount, urgent: false);
+        decimal total = afterDiscount + shipping;
 
-        return _reportBuilder.Build(docId, athlete, items, "UAH", disc, ship, total);
+        return _reportBuilder.Build(docId, athlete, items, "UAH", discount, shipping, total);
     }
 
-    public string DescribeClient(Athlete a)
-    {
-        string s = a.Name.Trim().ToUpper();
-        if (a.Kind == "vip")
-        {
-            s += " [VIP]";
-        }
-
-        if (a.DoneCount > LoyalMinDoneCount)
-        {
-            s += " [ЛОЯЛЬНИЙ]";
-        }
-
-        s += " <" + a.Email.ToLower() + ">";
-        int years = DateTime.Now.Year - a.SinceUtc.Year;
-        s += " стаж " + years;
-        return s;
-    }
+    public string DescribeClient(Athlete a) => a.Describe();
 
     public string DumpLog()
     {
@@ -101,7 +106,7 @@ public class LegacyRegistrationProcessor
         return r;
     }
 
-    private static string? Validate(List<EventLineItem>? items, string state, string? clientMail)
+    private static string? Validate(IReadOnlyList<EventLineItem>? items, string state, string? clientMail)
     {
         if (items == null)
         {
