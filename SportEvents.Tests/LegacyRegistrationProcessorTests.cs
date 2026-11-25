@@ -214,7 +214,7 @@ public sealed class LegacyRegistrationProcessorTests
                 new List<EventLineItem> { new() { Code = "RUN-10K", Qty = 1, Price = 400.00m } });
 
             Assert.Contains("Знижка: 40.00 UAH\nДоставка: 50.00 UAH\nРазом: 410.00 UAH\n", preview, StringComparison.Ordinal);
-            Assert.Equal("АНДРІЙ ШАРАГІН [VIP] [ЛОЯЛЬНИЙ] <andrii@sport.ua> стаж 3", processor.DescribeClient(athlete));
+            Assert.Equal("АНДРІЙ ШАРАГІН [VIP] [ЛОЯЛЬНИЙ] <andrii@sport.ua> стаж 3", LegacyRegistrationProcessor.DescribeClient(athlete));
         }
         finally
         {
@@ -222,3 +222,4 @@ public sealed class LegacyRegistrationProcessorTests
         }
     }
 }
+
