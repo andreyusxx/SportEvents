@@ -70,3 +70,6 @@ dotnet_diagnostic.SA1101.severity = none
 
 # SA1309: Забороняє префікс _ для приватних полів, що прямо суперечить стандарту іменування .NET.
 dotnet_diagnostic.SA1309.severity = none
+
+[SportEvents.Tests/*.cs]
+dotnet_diagnostic.CA1707.severity = none
