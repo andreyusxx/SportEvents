@@ -60,47 +60,15 @@ public class LegacyRegistrationProcessor
             return validationError;
         }
 
-        decimal sum = 0m;
-        for (int i = 0; i < items.Count; i++)
-        {
-            sum += items[i].Qty * items[i].Price;
-        }
-
-        decimal disc = 0m;
-        if (athlete.Kind == "vip")
-        {
-            disc = sum > DiscountThreshold ? sum * VipHighRate : sum * VipBaseRate;
-        }
-        else if (athlete.Kind == "partner")
-        {
-            disc = sum > DiscountThreshold ? sum * PartnerHighRate : sum * PartnerBaseRate;
-        }
-        else if (athlete.DoneCount > LoyalMinDoneCount && sum > DiscountThreshold)
-        {
-            disc = sum * LoyalRate;
-        }
-
-        disc += manualBonus;
+        decimal sum = CalculateSubtotal(items);
+        decimal disc = CalculateDiscount(athlete, sum) + manualBonus;
         decimal afterDisc = sum - disc;
-        decimal ship = afterDisc < FreeShippingThreshold
-            ? (urgent ? UrgentShippingFee : StandardShippingFee)
-            : 0m;
+        decimal ship = CalculateShipping(afterDisc, urgent);
 
         grandTotal = afterDisc + ship;
         _lastDiscount = disc;
         _lastShipping = ship;
         _lastTotal = grandTotal;
-
-        string rep = "Документ #" + docId + "\n";
-        rep += "Клієнт: " + athlete.Name + "\n";
-        for (int i = 0; i < items.Count; i++)
-        {
-            rep += items[i].Code + " x" + items[i].Qty + " = " + (items[i].Qty * items[i].Price).ToString("0.00") + " " + currency + "\n";
-        }
-
-        rep += "Знижка: " + _lastDiscount.ToString("0.00") + " " + currency + "\n";
-        rep += "Доставка: " + _lastShipping.ToString("0.00") + " " + currency + "\n";
-        rep += "Разом: " + _lastTotal.ToString("0.00") + " " + currency + "\n";
 
         if (sendMail)
         {
@@ -108,7 +76,53 @@ public class LegacyRegistrationProcessor
         }
 
         _log.Add("OK#" + docId);
-        return rep;
+        return BuildReportText(docId, athlete, items, currency, _lastDiscount, _lastShipping, _lastTotal);
+    }
+
+    public string Preview(int docId, Athlete athlete, List<EventLineItem> items)
+    {
+        if (items == null || items.Count == 0)
+        {
+            return "EMPTY";
+        }
+
+        decimal sum = CalculateSubtotal(items);
+        decimal disc = CalculateDiscount(athlete, sum);
+        decimal afterDisc = sum - disc;
+        decimal ship = CalculateShipping(afterDisc, urgent: false);
+        decimal total = afterDisc + ship;
+
+        return BuildReportText(docId, athlete, items, "UAH", disc, ship, total);
+    }
+
+    public string DescribeClient(Athlete a)
+    {
+        string s = a.Name.Trim().ToUpper();
+        if (a.Kind == "vip")
+        {
+            s += " [VIP]";
+        }
+
+        if (a.DoneCount > LoyalMinDoneCount)
+        {
+            s += " [ЛОЯЛЬНИЙ]";
+        }
+
+        s += " <" + a.Email.ToLower() + ">";
+        int years = DateTime.Now.Year - a.SinceUtc.Year;
+        s += " стаж " + years;
+        return s;
+    }
+
+    public string DumpLog()
+    {
+        string r = "";
+        foreach (var l in _log)
+        {
+            r += l + "\n";
+        }
+
+        return r;
     }
 
     private static string? Validate(List<EventLineItem>? items, string state, string? clientMail)
@@ -136,65 +150,66 @@ public class LegacyRegistrationProcessor
         return null;
     }
 
-    public string Preview(int docId, Athlete athlete, List<EventLineItem> items)
+    private static decimal CalculateSubtotal(IReadOnlyList<EventLineItem> items)
     {
-        if (items == null || items.Count == 0)
-        {
-            return "EMPTY";
-        }
-
         decimal sum = 0m;
         for (int i = 0; i < items.Count; i++)
         {
             sum += items[i].Qty * items[i].Price;
         }
 
-        decimal disc = 0m;
+        return sum;
+    }
+
+    private static decimal CalculateDiscount(Athlete athlete, decimal sum)
+    {
         if (athlete.Kind == "vip")
         {
-            disc = sum > DiscountThreshold ? sum * VipHighRate : sum * VipBaseRate;
-        }
-        else if (athlete.Kind == "partner")
-        {
-            disc = sum > DiscountThreshold ? sum * PartnerHighRate : sum * PartnerBaseRate;
-        }
-        else if (athlete.DoneCount > LoyalMinDoneCount && sum > DiscountThreshold)
-        {
-            disc = sum * LoyalRate;
+            return sum > DiscountThreshold ? sum * VipHighRate : sum * VipBaseRate;
         }
 
-        decimal afterDisc = sum - disc;
-        decimal ship = afterDisc < FreeShippingThreshold ? StandardShippingFee : 0m;
-        decimal total = afterDisc + ship;
+        if (athlete.Kind == "partner")
+        {
+            return sum > DiscountThreshold ? sum * PartnerHighRate : sum * PartnerBaseRate;
+        }
 
+        if (athlete.DoneCount > LoyalMinDoneCount && sum > DiscountThreshold)
+        {
+            return sum * LoyalRate;
+        }
+
+        return 0m;
+    }
+
+    private static decimal CalculateShipping(decimal amountAfterDiscount, bool urgent)
+    {
+        if (amountAfterDiscount >= FreeShippingThreshold)
+        {
+            return 0m;
+        }
+
+        return urgent ? UrgentShippingFee : StandardShippingFee;
+    }
+
+    private static string BuildReportText(
+        int docId,
+        Athlete athlete,
+        IReadOnlyList<EventLineItem> items,
+        string currency,
+        decimal discount,
+        decimal shipping,
+        decimal total)
+    {
         string rep = "Документ #" + docId + "\n";
         rep += "Клієнт: " + athlete.Name + "\n";
         for (int i = 0; i < items.Count; i++)
         {
-            rep += items[i].Code + " x" + items[i].Qty + " = " + (items[i].Qty * items[i].Price).ToString("0.00") + " UAH\n";
+            rep += items[i].Code + " x" + items[i].Qty + " = " + (items[i].Qty * items[i].Price).ToString("0.00") + " " + currency + "\n";
         }
 
-        rep += "Знижка: " + disc.ToString("0.00") + " UAH\n";
-        rep += "Доставка: " + ship.ToString("0.00") + " UAH\n";
-        rep += "Разом: " + total.ToString("0.00") + " UAH\n";
+        rep += "Знижка: " + discount.ToString("0.00") + " " + currency + "\n";
+        rep += "Доставка: " + shipping.ToString("0.00") + " " + currency + "\n";
+        rep += "Разом: " + total.ToString("0.00") + " " + currency + "\n";
         return rep;
-    }
-
-    public string DescribeClient(Athlete a)
-    {
-        string s = a.Name.Trim().ToUpper();
-        if (a.Kind == "vip") s += " [VIP]";
-        if (a.DoneCount > LoyalMinDoneCount) s += " [ЛОЯЛЬНИЙ]";
-        s += " <" + a.Email.ToLower() + ">";
-        int years = DateTime.Now.Year - a.SinceUtc.Year;
-        s += " стаж " + years;
-        return s;
-    }
-
-    public string DumpLog()
-    {
-        string r = "";
-        foreach (var l in _log) r += l + "\n";
-        return r;
     }
 }
