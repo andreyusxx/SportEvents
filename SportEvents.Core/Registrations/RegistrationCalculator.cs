@@ -60,17 +60,22 @@ public static class RegistrationCalculator
     public static decimal VolumeDiscountOf(decimal amount)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(amount);
+        decimal discount = 0m;
         if (amount > PricingRules.HighVolumeThreshold)
         {
-            return amount * PricingRules.HighVolumeRate;
+            discount = amount * PricingRules.HighVolumeRate;
         }
-
-        if (amount > PricingRules.MediumVolumeThreshold)
+        else if (amount > PricingRules.MediumVolumeThreshold)
         {
-            return amount * PricingRules.MediumVolumeRate;
+            discount = amount * PricingRules.MediumVolumeRate;
         }
 
-        return 0m;
+        if (discount > 600m)
+        {
+            discount = 600m;
+        }
+
+        return discount;
     }
 
     /// <summary>
