@@ -1,6 +1,7 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text;
 using Microsoft.Extensions.Logging;
+using SportEvents.Core;
 using SportEvents.Core.Abstractions;
 using SportEvents.Core.Domain;
 using SportEvents.Core.Errors;
@@ -20,6 +21,7 @@ internal static class Program
     /// </summary>
     private static void Main()
     {
+        Console.WriteLine($"SportEvents v{VersionInfo.Current()}");
         Console.OutputEncoding = Encoding.UTF8;
 
         using ILoggerFactory factory = LoggerFactory.Create(builder =>
