@@ -10,5 +10,7 @@
     <VersionPrefix>0.8.0</VersionPrefix>
     <Authors>Шарагін Андрій</Authors>
     <Product>SportEvents</Product>
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditMode>all</NuGetAuditMode>
   </PropertyGroup>
 </Project>
