@@ -485,3 +485,7 @@ $RECYCLE.BIN/
 *.user
 data/*.local.json
 coverage/
+
+appsettings.Local.json
+*.secrets.json
+.env

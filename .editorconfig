@@ -55,9 +55,14 @@ dotnet_diagnostic.CA1062.severity = warning
 dotnet_diagnostic.CA1305.severity = warning
 dotnet_diagnostic.CA1502.severity = warning
 dotnet_diagnostic.CA1506.severity = warning
-dotnet_diagnostic.SA1516.severity = warning
+dotnet_diagnostic.SA1516.severity = suggestion
 dotnet_diagnostic.SA1124.severity = error
 
+dotnet_diagnostic.SA1623.severity = none
+dotnet_diagnostic.SA0001.severity = none
+dotnet_diagnostic.SA1413.severity = none
+dotnet_diagnostic.SA1600.severity = none
+dotnet_diagnostic.IDE0055.severity = warning
 # Свідомо вимкнені правила StyleCop (з інженерним обґрунтуванням)
 # SA1633: Навчальний проєкт не потребує ліцензійного копірайту на початку кожного файлу.
 dotnet_diagnostic.SA1633.severity = none
