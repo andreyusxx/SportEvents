@@ -1,5 +1,5 @@
 # SportEvents
-
+![CI](https://github.com/andreyusxx/SportEvents/actions/workflows/ci.yml/badge.svg)
 Навчальний проєкт з дисципліни «Конструювання програмного забезпечення». Варіант № 20: Реєстрація учасників і результати змагань.
 
 ## Склад рішення
