@@ -29,7 +29,7 @@ public sealed class ReportBuilder
 
         return text.ToString();
     }
-
+    
     /// <summary>
     /// Повертає текстовий опис кількості позицій.
     /// </summary>
