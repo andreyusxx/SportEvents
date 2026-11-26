@@ -29,4 +29,15 @@ public sealed class ReportBuilder
 
         return text.ToString();
     }
+    
+    /// <summary>
+    /// Повертає текстовий опис кількості позицій.
+    /// </summary>
+    /// <param name="count">Кількість позицій.</param>
+    /// <returns>Рядок опису.</returns>
+    public string Describe(int count)
+    {
+        string note;
+        return "Позицій: " + count;
+    }
 }
